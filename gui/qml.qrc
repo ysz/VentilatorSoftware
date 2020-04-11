@@ -3,5 +3,8 @@
         <file>main.qml</file>
         <file>ScopeView.qml</file>
         <file>ControlPanel.qml</file>
+        <file>../common/include/packet_types.h</file>
+        <file>../common/libs/checksum/checksum.cpp</file>
+        <file>../common/libs/checksum/checksum.h</file>
     </qresource>
 </RCC>
