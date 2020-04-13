@@ -2,93 +2,9 @@
 
 // Basic test code to test the comms protocol using a second arduino (instead of a rpi)
 
-// FIXME Use enums from packet_types.h instead of redefining them here
+#include "../../../../common/include/packet_types.h"
+
 // FIXME This has been put together very rapidly just to test some communications, it can certainly be improved
-/*
-* Stores all command numbers that can sent by the GUI
-*/
-enum class command {
-
-    /* Medical mode commands */
-
-    set_rr          = 0x00,
-    get_rr          = 0x01,
-    set_tv          = 0x02,
-    get_tv          = 0x03,
-    set_peep        = 0x04,
-    get_peep        = 0x05,
-    set_pip         = 0x06,
-    get_pip         = 0x07,
-    set_dwell       = 0x08,
-    get_dwell       = 0x09,
-    set_id          = 0x0a,   /* Inspiration duration */
-    get_id          = 0x0b,
-    set_ed          = 0x0c,   /* Expiration duration */
-    get_ed          = 0x0d,
-
-    get_pressure    = 0x0e,
-    get_flow        = 0x0f,
-    get_volume      = 0x10,
-
-    /* Engineering mode commands */
-
-    set_kp          = 0x20,     /* PID constant Kp */
-    get_Kp          = 0x21,
-    set_Ki          = 0x22,     /* PID constant Ki */
-    get_Ki          = 0x23,
-    set_Kd          = 0x24,     /* PID constant Kd */
-    get_Kd          = 0x25,
-
-    set_blower      = 0x26,     /* Turn blower ON/OFF */
-    reset_vc        = 0x27,     /* Reset Ventilation Controller */
-
-    /* Mixed Engineering/Medical mode commands */
-
-    set_periodic    = 0x40,     /* Periodic data transmission mode (Pressure, Flow, Volume) */
-    get_periodic    = 0x41,
-    set_mode        = 0x42,     /* Engineering or medical mode */
-    get_mode        = 0x43,
-    comms_check     = 0x44,     /* Communications check command */
-
-    count                       /* Sentinel */
-};
-
-/*
-* Stores all message types that can sent by the Ventilator controller and the GUI
-*/
-enum class msgType {
-    cmd             = 0x00,     /* Command */
-    ack             = 0x01,     /* Ventilator Controller alarm Ack */
-    nAck            = 0x02,     /* Ventilator Controller alarm Fail */
-
-    rAck            = 0x10,     /* Response Ack */
-    rErrChecksum    = 0x11,     /* Response checksum error */
-    rErrMode        = 0x12,     /* Response mode error */
-    rErrCmd         = 0x13,     /* Response cmd error */
-
-    status          = 0x20,     /* Status */
-    alarm           = 0x30,     /* Alarm */
-    data            = 0x40,     /* Data */
-
-    count                       /* Sentinel */
-};
-
-enum class dataID {
-    /* DataID values should start at a value higher than the higest command number */
-
-    /* Status */
-    vc_boot      = 0x80,    /* Status sent when arduino boots (includes software version) */
-
-
-    /* Alarms */
-    alarm_1     = 0xA0,
-    alarm_2     = 0xA1,
-
-    /* Data */
-    data_1      = 0xC0,
-
-    count                   /* Sentinel */
-};
 
 // Function prototypes
 uint16_t Fletcher16_calc(uint16_t *sum1, uint16_t *sum2,  char *data, uint8_t count );
@@ -113,6 +29,7 @@ void test_alarm_response_checksumErr();
 // 4) Following an alarm, respond with a nAck
 // 5) Following an alarm, respond with an ack (with checksum error)
 // 6) Following an alarm, respond with a nAck (with checksum error)
+
 void setup() {
   Serial.begin(115200, SERIAL_8N1);
 
@@ -129,6 +46,7 @@ void loop() {
 
 }
 
+// Send test command to ventilator controller
 void test_cmd() {
     char data;
 
@@ -137,6 +55,7 @@ void test_cmd() {
     send(msgType::cmd, command::set_periodic, &data, 1);
 }
 
+// Send test command to ventilator controller with checksum error
 void test_cmd_checksumErr() {
     char data;
 
@@ -145,6 +64,7 @@ void test_cmd_checksumErr() {
     send_checksumError(msgType::cmd, command::set_periodic, &data, 1);
 }
 
+// Respond to alarm packet from ventilator controller (ack or nack)
 void test_alarm_response() {
 
     enum msgType msg;
@@ -164,6 +84,8 @@ void test_alarm_response() {
 
 }
 
+// Respond to alarm packet from ventilator controller (ack or nack)
+// with checksum error
 void test_alarm_response_checksumErr() {
     enum msgType msg;
 
@@ -182,6 +104,7 @@ void test_alarm_response_checksumErr() {
     } while(1);
 }
 
+// Repond to alarm  from ventilator controller
 void respond_alarm(enum msgType type) {
 
     char metadata[1];
@@ -208,6 +131,7 @@ void respond_alarm(enum msgType type) {
     Serial.write(c1);
 }
 
+// Repond to alarm from ventilator controller with checksum error
 void respond_alarm_checksumErr(enum msgType type) {
 
     char metadata[1];
@@ -263,6 +187,7 @@ enum msgType wait_packet() {
     return msg;
 }
 
+// Send packet to ventilator controller
 void send(enum msgType type, enum command cmd, char *data, uint8_t len) {
 
     char metadata[3];
@@ -293,6 +218,7 @@ void send(enum msgType type, enum command cmd, char *data, uint8_t len) {
     Serial.write(c1);
 }
 
+// Send packet to ventilator controller with checksum error
 void send_checksumError(enum msgType type, enum command cmd, char *data, uint8_t len) {
 
     char metadata[3];
@@ -325,6 +251,7 @@ void send_checksumError(enum msgType type, enum command cmd, char *data, uint8_t
     Serial.write(c1);
 }
 
+// Calculate checksum
 uint16_t Fletcher16_calc(uint16_t *sum1, uint16_t *sum2,  char *data, uint8_t count )
 {
     uint8_t index;
