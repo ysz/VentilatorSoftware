@@ -49,21 +49,14 @@ class UART_DMA {
   DMA_Regs *const dma;
   uint8_t txCh;
   uint8_t rxCh;
-  UART_DMA_RxListener &rxListener;
-  UART_DMA_TxListener &txListener;
+  UART_DMA_RxListener *rxListener;
+  UART_DMA_TxListener *txListener;
   char matchChar;
 
  public:
   UART_DMA(UART_Regs *const uart, DMA_Regs *const dma, uint8_t txCh,
-           uint8_t rxCh, UART_DMA_RxListener &rxl, UART_DMA_TxListener &txl,
-           char matchChar)
-      : uart(uart),
-        dma(dma),
-        txCh(txCh),
-        rxCh(rxCh),
-        rxListener(rxl),
-        txListener(txl),
-        matchChar(matchChar) {}
+           uint8_t rxCh, char matchChar)
+      : uart(uart), dma(dma), txCh(txCh), rxCh(rxCh), matchChar(matchChar) {}
 
   void init(int baud);
   // Returns true if DMA TX is in progress
@@ -75,7 +68,7 @@ class UART_DMA {
   // Returns false if DMA transmission is in progress, does not
   // interrupt previous transmission.
   // Returns true if no transmission is in progress
-  bool startTX(const uint8_t *buf, uint32_t length);
+  bool startTX(const uint8_t *buf, uint32_t length, UART_DMA_TxListener *txl);
 
   uint32_t getRxBytesLeft();
 
@@ -88,7 +81,8 @@ class UART_DMA {
   // setup. Returns true if no reception is in progress and new reception
   // was setup.
 
-  bool startRX(const char *buf, uint32_t length, uint32_t timeout);
+  bool startRX(const uint8_t *buf, uint32_t length, uint32_t timeout,
+               UART_DMA_RxListener *rxl);
   void stopRX();
   void charMatchEnable();
 
