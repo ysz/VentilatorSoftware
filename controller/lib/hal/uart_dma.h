@@ -14,7 +14,7 @@ enum RxError_t {
 // and rx character match events.
 // NOTE: all callbacks are called from interrupt context!
 class UART_DMA_RxListener {
-public:
+ public:
   // Called on DMA RX complete
   virtual void onRxComplete() = 0;
   // Called on specified character reception
@@ -24,7 +24,7 @@ public:
 };
 
 class UART_DMA_TxListener {
-public:
+ public:
   // Called on DMA TX complete
   virtual void onTxComplete() = 0;
   // Called on TX errors
@@ -34,7 +34,7 @@ public:
 class DMACtrl {
   DMA_Regs *const dma;
 
-public:
+ public:
   explicit DMACtrl(DMA_Regs *const dma) : dma(dma) {}
   void init() {
     // UART3 reception happens on DMA1 channel 3
@@ -53,12 +53,17 @@ class UART_DMA {
   UART_DMA_TxListener &txListener;
   char matchChar;
 
-public:
+ public:
   UART_DMA(UART_Regs *const uart, DMA_Regs *const dma, uint8_t txCh,
            uint8_t rxCh, UART_DMA_RxListener &rxl, UART_DMA_TxListener &txl,
            char matchChar)
-      : uart(uart), dma(dma), txCh(txCh), rxCh(rxCh), rxListener(rxl),
-        txListener(txl), matchChar(matchChar) {}
+      : uart(uart),
+        dma(dma),
+        txCh(txCh),
+        rxCh(rxCh),
+        rxListener(rxl),
+        txListener(txl),
+        matchChar(matchChar) {}
 
   void init(int baud);
   // Returns true if DMA TX is in progress
@@ -70,7 +75,7 @@ public:
   // Returns false if DMA transmission is in progress, does not
   // interrupt previous transmission.
   // Returns true if no transmission is in progress
-  bool startTX(const char *buf, uint32_t length);
+  bool startTX(const uint8_t *buf, uint32_t length);
 
   uint32_t getRxBytesLeft();
 
@@ -91,7 +96,7 @@ public:
   void DMA_RX_ISR();
   void DMA_TX_ISR();
 
-private:
+ private:
   bool tx_in_progress;
   bool rx_in_progress;
 };
