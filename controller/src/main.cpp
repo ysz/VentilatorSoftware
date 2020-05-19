@@ -53,6 +53,7 @@ limitations under the License.
 #include "hal.h"
 #include "network_protocol.pb.h"
 #include "sensors.h"
+#include "trace.h"
 
 // NO_GUI_DEV_MODE is a hacky development mode until we have the GUI working.
 //
@@ -88,13 +89,13 @@ static void DEV_MODE_comms_handler(const ControllerStatus &controller_status,
   last_sent = now;
 
   auto &r = controller_status.sensor_readings;
-  debugPrint("%.2f, ", controller_status.fan_setpoint_cm_h2o);
-  debugPrint("%.2f, ", r.patient_pressure_cm_h2o);
-  debugPrint("%.2f, ", r.inflow_pressure_diff_cm_h2o);
-  debugPrint("%.2f, ", r.outflow_pressure_diff_cm_h2o);
-  debugPrint("%.2f, ", r.flow_ml_per_min / 1000.0f);
+  debug.Print("%.2f, ", controller_status.fan_setpoint_cm_h2o);
+  debug.Print("%.2f, ", r.patient_pressure_cm_h2o);
+  debug.Print("%.2f, ", r.inflow_pressure_diff_cm_h2o);
+  debug.Print("%.2f, ", r.outflow_pressure_diff_cm_h2o);
+  debug.Print("%.2f, ", r.flow_ml_per_min / 1000.0f);
   // debugPrint("%.2f, ", r.volume_ml / 10.f);
-  debugPrint("\n");
+  debug.Print("\n");
 }
 #endif
 
@@ -126,6 +127,9 @@ static void high_priority_task(void *arg) {
   // Update some status info
   controller_status.fan_power = actuators_state.fan_power;
   controller_status.fan_setpoint_cm_h2o = actuators_state.fan_setpoint_cm_h2o;
+
+  // Sample any trace variables that are enabled
+  TraceSample();
 
   // Pet the watchdog
   Hal.watchdog_handler();
@@ -176,6 +180,9 @@ static void background_loop() {
       BlockInterrupts block;
       controller_status.active_params = gui_status.desired_params;
     }
+
+    // Handle the debug serial interface
+    debug.Poll();
   }
 }
 
