@@ -101,6 +101,7 @@ static void DEV_MODE_comms_handler(const ControllerStatus &controller_status,
 static Controller controller;
 static ControllerStatus controller_status;
 static Sensors sensors;
+static Comms comms;
 
 // This function handles all the high priority tasks which need to be called
 // periodically.  The HAL calls this function from a timer interrupt.
@@ -183,7 +184,6 @@ int main() {
   // Initialize Hal first because it initializes the watchdog. See comment on
   // HalApi::init().
   Hal.init();
-  comms.init();
   alarm_init();
 
   background_loop();
