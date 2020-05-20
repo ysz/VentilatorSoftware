@@ -29,6 +29,8 @@ limitations under the License.
 #include "vars.h"
 #include <stdint.h>
 
+#if 0
+
 // local functions
 static int CountActiveVars(DebugVar *vptr[]);
 
@@ -220,3 +222,4 @@ public:
 };
 
 TraceCmd traceCmd;
+#endif

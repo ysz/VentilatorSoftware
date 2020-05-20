@@ -19,8 +19,10 @@ limitations under the License.
 #include <stdarg.h>
 #include <stddef.h>
 
-int RWsprintf(char *str, const char *format, ...);
-int RWsnprintf(char *str, size_t size, const char *format, ...);
+int RWsprintf(char *str, const char *format, ...)
+    __attribute__((format(printf, 2, 3)));
+int RWsnprintf(char *str, size_t size, const char *format, ...)
+    __attribute__((format(printf, 3, 4)));
 int RWvsnprintf(char *str, size_t size, const char *format, va_list ap);
 
 #endif

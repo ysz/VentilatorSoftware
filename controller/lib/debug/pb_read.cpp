@@ -22,6 +22,8 @@ limitations under the License.
 #include "debug.h"
 #include <string.h>
 
+#if 0
+
 class PrintBuffReadCmd : public DebugCmd {
 public:
   PrintBuffReadCmd() : DebugCmd(DbgCmdCode::PRINT_BUFF_READ) {}
@@ -46,3 +48,4 @@ public:
 };
 
 PrintBuffReadCmd pbRead;
+#endif

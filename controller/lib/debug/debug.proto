@@ -1,0 +1,144 @@
+/* Copyright 2020, RespiraWorks
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+// # Regenerating the C code
+//
+// When you modify this file you also need to regenerate the C code.  On my
+// Mac:
+//
+//  $ brew install nanopb-generator
+//  $ pip3 install protobuf
+//  $ cd controller/lib/debug
+//  $ protoc \
+//      --plugin=/usr/local/Cellar/nanopb-generator/0.4.1/bin/protoc-gen-nanopb
+//      \
+//      -I/usr/local/Cellar/nanopb-generator/0.4.1/libexec/proto -I. \
+//      --nanopb_out=. debug.proto
+//
+// TODO: Instructions for regenerating Python bindings.
+
+syntax = "proto2";
+
+import "nanopb.proto";
+
+message DebugRequest {
+  oneof request {
+    DebugPeekRequest peek = 2;
+    DebugPokeRequest poke = 3;
+    DebugReadPrintBufRequest read_print_buf = 4;
+    DebugReadVarsRequest read_vars = 5;
+    DebugWriteVarRequest write_var = 6;
+    DebugTraceRequest trace = 7;
+  }
+}
+
+message DebugResponse {
+  oneof response {
+    DebugPeekResponse peek = 2;
+    DebugPokeResponse poke = 3;
+    DebugReadPrintBufResponse read_print_buf = 4;
+    DebugReadVarsResponse read_vars = 5;
+    DebugWriteVarResponse write_var = 6;
+    DebugTraceResponse trace = 7;
+  }
+}
+
+// TODO
+message DebugVal {
+  oneof val {
+    uint32 val_uint32 = 1;
+    int32 val_sint64 = 2;
+    float val_float = 3;
+  }
+}
+
+// Fetches num_bytes from memory, starting at address.
+message DebugPeekRequest {
+  required uint32 address = 1;
+  required uint32 num_bytes = 2;
+}
+message DebugPeekResponse {
+  enum Status {
+    OK = 0;
+    TOO_MANY_BYTES = 1;
+  };
+  required Status status = 1;
+  // TODO: This length restriction could be lifted, but is it worth it?
+  required bytes data = 2 [ (nanopb).max_size = 64 ];
+}
+
+// Writes the given bytes into memory, starting at address.
+message DebugPokeRequest {
+  required uint32 address = 1;
+  // If you want to poke more than this many bytes, split it into multiple
+  // calls.
+  required bytes data = 2 [ (nanopb).max_size = 64 ];
+}
+message DebugPokeResponse {}
+
+// Gets the data out of the buffer that's written to via debug.Print().
+message DebugReadPrintBufRequest {}
+message DebugReadPrintBufResponse { required string data = 1; }
+
+// Gets the current value of each DebugVar in the program.
+message DebugReadVarsRequest {}
+message DebugReadVarsResponse {
+  message Var {
+    required string name = 1;
+    required string help = 2;
+    required DebugVal val = 3;
+  }
+  repeated Var vars = 1;
+}
+
+// Sets the value of a particular DebugVar.
+message DebugWriteVarRequest {
+  required string name = 1 [ (nanopb).max_size = 32 ];
+  required DebugVal val = 2;
+}
+message DebugWriteVarResponse {
+  enum Status {
+    OK = 0;
+    NAME_NOT_FOUND = 1;
+  }
+  required Status status = 1;
+}
+
+message DebugTraceRequest {
+  // Which DebugVars to trace.
+  repeated string vars = 1 [ (nanopb).max_count = 4, (nanopb).max_size = 32 ];
+
+  // Number of samples to take before ending the trace.
+  required int32 num_samples = 2;
+
+  // Read the trace vars once every `sample_period` trips through the
+  // high-priority loop.
+  required int32 sample_period = 3;
+}
+message DebugTraceResponse {
+  enum Status {
+    OK = 0;
+    // One of the requested variables wasn't present.
+    NAME_NOT_FOUND = 1;
+    // Can't have two traces in progress simultaneously.
+    TRACE_IN_PROGRESS = 2;
+  }
+  required Status status = 1;
+
+  // TODO
+  repeated string vars = 2;
+  message Sample { repeated DebugVal vals = 1; }
+  repeated Sample samples = 3;
+}

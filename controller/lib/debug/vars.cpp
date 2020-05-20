@@ -17,6 +17,8 @@ limitations under the License.
 #include "debug.h"
 #include <string.h>
 
+#if 0
+
 // static member variables
 DebugVar *DebugVar::varList[100];
 int DebugVar::varCount = 0;
@@ -265,3 +267,4 @@ public:
 };
 
 VarCmd varCmd;
+#endif

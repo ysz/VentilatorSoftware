@@ -23,6 +23,7 @@ limitations under the License.
 
 #include "debug.h"
 #include <string.h>
+#if 0
 
 class PeekCmd : public DebugCmd {
 public:
@@ -67,3 +68,4 @@ public:
 };
 
 PeekCmd peek;
+#endif

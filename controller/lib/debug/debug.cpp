@@ -13,45 +13,237 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-/*
- * The debug serial port interface implements a very simple binary command
- * structure.  Commands are sent using the following format:
- *
- *   <cmd> <data> <crc> <term>
- *
- * <cmd> is a single byte command code.
- *
- * <data> is zero or more bytes of command data.  The meaning of the data
- * is dependent on the command code.
- *
- * <crc> is a 16-bit CRC on the command and data bytes sent LSB first
- *
- * The response to a command has a similar structure:
- *   <err> <data> <crc> <term>
- *
- * <err> is an error code (0 for success)
- *
- * <data> is any data returned from the command.  If there's an error
- * there is never any data
- *
- * <term> is a special character value indicating the end of a command.
- *
- * There are two special char values are used:
- * - TERM (0xF2) - Signifies the end of a command.
- * - ESC  (0xF1) - used to send a special character as data.
- *
- * The escape byte causes the serial processor to treat the next byte as
- * data no matter what its value is.  It's used when the data being sent
- * has a special value.
- *
- */
-
 #include "debug.h"
+#include "debug.pb.h"
 #include "hal.h"
+#include "pb.h"
+#include "pb_decode.h"
+#include "pb_encode.h"
 #include "sprintf.h"
+#include <optional>
 #include <stdarg.h>
 #include <string.h>
 
+namespace {
+
+template <typename T, size_t N> static constexpr size_t ArraySize(T (&)[N]) {
+  return N;
+}
+
+// HAL istream
+//  - Bytes available?
+//  - Read N bytes (blocking)
+//  - Read up to N bytes (nonblocking)
+//
+// Unframer (istream)
+//  - Reads bytes from a source
+//  - Outputs unescaped bytes
+//  - EOF when we hit a frame boundary.
+//  - Does checksuming too?
+//
+// Buffer (istream)
+//  - Reads bytes from a source
+//
+// ProtoIstream
+//  - Reads bytes from a source.
+//  - Writes into a proto*.
+
+// TODO: Should this even be a class?
+// TODO: Move to a separate library?
+class DebugSerialPbIstream {
+public:
+  pb_istream_t *pb_stream() { return &pb_stream_; }
+
+private:
+  static bool callback(pb_istream_t *stream, uint8_t *buf, size_t count) {
+    // TODO: Framing.
+    // TODO: Checksum
+    size_t written = 0;
+    uint16_t remaining = static_cast<uint16_t>(count);
+    while (remaining > 0) {
+      written += Hal.debugRead(reinterpret_cast<char *>(buf), remaining);
+    }
+    return true;
+  }
+
+  pb_istream_t pb_stream_ = {
+      .callback = &callback,
+      .state = nullptr,
+      .bytes_left = SIZE_MAX,
+  };
+};
+
+class DebugSerialPbOstream {
+public:
+  pb_ostream_t *pb_stream() { return &pb_stream_; }
+
+private:
+  static bool callback(pb_ostream_t *stream, const uint8_t *buf, size_t count) {
+    // TODO: Framing.
+    // TODO: Checksum
+    for (size_t i = 0; i < count; i++) {
+      while (Hal.debugWrite(reinterpret_cast<const char *>(buf + i), 1) == 0) {
+        // nop
+      }
+    }
+    return true;
+  }
+
+  pb_ostream_t pb_stream_ = {
+      .callback = &callback,
+      .state = nullptr,
+      .max_size = SIZE_MAX,
+      .bytes_written = 0,
+  };
+};
+
+template <typename Fn> class NanopbEncodeCallback {
+public:
+  explicit NanopbEncodeCallback(Fn &&fn) : fn_(std::forward<Fn>(fn)) {}
+
+  pb_callback_t cb() {
+    pb_callback_t ret;
+    ret.arg = this;
+    ret.funcs.encode = +[](pb_ostream_t *stream, const pb_field_iter_t *field,
+                           void *const *arg) {
+      if (!pb_encode_tag_for_field(stream, field))
+        return false;
+      auto *that = reinterpret_cast<NanopbEncodeCallback *>(*arg);
+      return that->fn_(stream, field);
+    };
+    return ret;
+  }
+
+private:
+  Fn fn_;
+};
+
+template <typename Fn>
+NanopbEncodeCallback<Fn> MakeNanopbEncodeCallback(Fn &&fn) {
+  return NanopbEncodeCallback<Fn>(std::forward<Fn>(fn));
+}
+
+void SendDebugResponse(const DebugResponse &resp) {
+  DebugSerialPbOstream ostream;
+  pb_encode(ostream.pb_stream(), DebugResponse_fields, &resp);
+  // TODO: Raise an error if sending fails.
+}
+
+} // anonymous namespace
+
+void DebugSerial::Poll() {
+  if (!Hal.debugBytesAvailableForRead()) {
+    return;
+  }
+
+  // There's a byte in the debug serial buffer.  Maaaaaail time!  Read a whole
+  // DebugRequest message.
+
+  DebugSerialPbIstream istream;
+  DebugRequest req;
+  if (!pb_decode(istream.pb_stream(), &DebugRequest_msg, &req)) {
+    // TODO: Log an error
+    return;
+  }
+
+  switch (req.which_request) {
+  case DebugRequest_peek_tag:
+    HandlePeek(req.request.peek);
+    break;
+  case DebugRequest_poke_tag:
+    HandlePoke(req.request.poke);
+    break;
+  case DebugRequest_read_print_buf_tag:
+    HandleReadPrintBuf(req.request.read_print_buf);
+    break;
+  case DebugRequest_read_vars_tag:
+    HandleReadVars(req.request.read_vars);
+    break;
+  case DebugRequest_write_var_tag:
+    HandleWriteVar(req.request.write_var);
+    break;
+  case DebugRequest_trace_tag:
+    HandleTrace(req.request.trace);
+    break;
+  }
+}
+
+int DebugSerial::Print(const char *fmt, ...) {
+  char buf[256];
+
+  // Note that this uses a local sprintf implementation because
+  // the one from the standard libraries will potentially dynamically
+  // allocate memory.
+  va_list ap;
+  va_start(ap, fmt);
+  int len = RWvsnprintf(buf, sizeof(buf), fmt, ap);
+  va_end(ap);
+
+  // Write as much as will fit to my print buffer.
+  for (int i = 0; i < len; i++) {
+    if (!printBuf.Put(buf[i]))
+      return i;
+  }
+  return len;
+}
+
+void DebugSerial::HandlePeek(const DebugPeekRequest &req) {
+  DebugResponse resp = DebugResponse_init_default;
+  resp.which_response = DebugResponse_peek_tag;
+
+  DebugPeekResponse &peek = resp.response.peek;
+  peek = DebugPeekResponse_init_default;
+
+  if (req.num_bytes > ArraySize(peek.data.bytes)) {
+    peek.status = DebugPeekResponse_Status_TOO_MANY_BYTES;
+  } else {
+    peek.status = DebugPeekResponse_Status_OK;
+    memcpy(peek.data.bytes, reinterpret_cast<const char *>(req.address),
+           req.num_bytes);
+    peek.data.size = static_cast<uint16_t>(req.num_bytes);
+  }
+  SendDebugResponse(resp);
+}
+
+void DebugSerial::HandlePoke(const DebugPokeRequest &req) {
+  DebugResponse resp = DebugResponse_init_default;
+  resp.which_response = DebugResponse_poke_tag;
+
+  DebugPokeResponse &poke = resp.response.poke;
+  poke = DebugPokeResponse_init_default;
+
+  memcpy(reinterpret_cast<char *>(req.address), req.data.bytes, req.data.size);
+  SendDebugResponse(resp);
+}
+
+void DebugSerial::HandleReadPrintBuf(const DebugReadPrintBufRequest &) {
+  DebugResponse resp = DebugResponse_init_default;
+  resp.which_response = DebugResponse_read_print_buf_tag;
+
+  DebugReadPrintBufResponse &read_print_buf = resp.response.read_print_buf;
+  auto data_cb = MakeNanopbEncodeCallback(
+      [this](pb_ostream_t *stream, const pb_field_iter_t *) -> bool {
+        // TODO: The circular buffer is actually made up of one or two
+        // contiguous buffers, so if we cared about speed, we could use them
+        // directly, rather than calling pb_write once for each char.
+        for (std::optional<uint8_t> val = printBuf.Get(); val != std::nullopt;
+             val = printBuf.Get()) {
+          if (!pb_write(stream, &*val, 1)) {
+            return false;
+          }
+        }
+        return true;
+      });
+  read_print_buf.data = data_cb.cb();
+
+  SendDebugResponse(resp);
+}
+
+void DebugSerial::HandleReadVars(const DebugReadVarsRequest &) {}
+void DebugSerial::HandleWriteVar(const DebugWriteVarRequest &) {}
+void DebugSerial::HandleTrace(const DebugTraceRequest &) {}
+
+#if 0
 // global debug handler
 DebugSerial debug;
 
@@ -106,30 +298,6 @@ void DebugSerial::Poll() {
     }
     return;
   }
-}
-
-// Format a debug string printf sytle and save it to a local buffer
-// which can be queried by the interface program.
-//
-// Returns the number of bytes actually written to the print buffer
-int DebugSerial::Print(const char *fmt, ...) {
-  char buff[300];
-
-  // Note that this uses a local sprintf implementation because
-  // the one from the standard libraries will potentially dynamically
-  // allocate memory.
-  va_list ap;
-  va_start(ap, fmt);
-  int len = RWvsnprintf(buff, sizeof(buff), fmt, ap);
-  va_end(ap);
-
-  // Write as much as will fit to my print buffer.
-  for (int i = 0; i < len; i++) {
-    if (!printBuff.Put(buff[i]))
-      return i;
-  }
-
-  return len;
 }
 
 // Read the next byte from the debug serial port
@@ -314,24 +482,4 @@ uint16_t DebugSerial::CalcCRC(uint8_t *buff, int len) {
 DebugCmd::DebugCmd(DbgCmdCode opcode) {
   cmdList[static_cast<uint8_t>(opcode)] = this;
 }
-
-// Mode command.  This returns a single byte of data which
-// gives the firmware mode:
-//  0 - Running in normal mode
-//  1 - Running in boot mode.
-//
-// We don't actually have a boot mode yet, but its only
-// a matter of time.  Once we start doing things like
-// updating firmware (not through a debugger) we will
-// need a separate boot loader image to ensure graceful
-// recovery.
-class ModeCmd : public DebugCmd {
-public:
-  ModeCmd() : DebugCmd(DbgCmdCode::MODE) {}
-  DbgErrCode HandleCmd(uint8_t *data, int *len, int max) {
-    *len = 1;
-    data[0] = 0;
-    return DbgErrCode::OK;
-  }
-};
-ModeCmd mode;
+#endif

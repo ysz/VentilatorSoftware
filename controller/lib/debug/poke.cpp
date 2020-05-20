@@ -26,6 +26,7 @@ limitations under the License.
 #include "debug.h"
 #include <string.h>
 
+#if 0
 class PokeCmd : public DebugCmd {
 public:
   PokeCmd() : DebugCmd(DbgCmdCode::POKE) {}
@@ -70,3 +71,4 @@ public:
 };
 
 PokeCmd poke;
+#endif

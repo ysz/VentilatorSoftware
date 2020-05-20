@@ -17,8 +17,37 @@ limitations under the License.
 #define DEBUG_H
 
 #include "circular_buffer.h"
+#include "debug.pb.h"
 #include <stdint.h>
 
+// Singleton class which implements the debug serial port handler.
+// TODO: Rename to 'Debug'.
+// TODO: Make constructor private.
+class DebugSerial {
+public:
+  // Called from the main loop to handle debug commands.
+  void Poll();
+
+  // printf style function to print data to a "virtual console".
+  //
+  // Data printed this way can be retrieved via the DebugReadPrintBuf command.
+  //
+  // Returns number of bytes written.
+  int Print(const char *fmt, ...) __attribute__((format(printf, 2, 3)));
+
+private:
+  void HandlePeek(const DebugPeekRequest &);
+  void HandlePoke(const DebugPokeRequest &);
+  void HandleReadPrintBuf(const DebugReadPrintBufRequest &);
+  void HandleReadVars(const DebugReadVarsRequest &);
+  void HandleWriteVar(const DebugWriteVarRequest &);
+  void HandleTrace(const DebugTraceRequest &);
+
+  CircBuff<uint8_t, 2048> printBuf;
+};
+inline DebugSerial debug;
+
+#if 0
 // States for the internal state machine
 enum class DbgPollState { WAIT_CMD, PROCESS_CMD, SEND_RESP };
 
@@ -107,35 +136,6 @@ private:
   void SendError(DbgErrCode err);
 };
 extern DebugSerial debug;
-
-// Some simple data conversion functions.
-// These assume little endian byte format
-inline uint16_t u8_to_u16(uint8_t *dat) {
-  uint16_t L = dat[0];
-  uint16_t H = dat[1];
-  return static_cast<uint16_t>(L | (H << 8));
-}
-
-inline uint32_t u8_to_u32(uint8_t *dat) {
-  uint32_t A = dat[0];
-  uint32_t B = dat[1];
-  uint32_t C = dat[2];
-  uint32_t D = dat[3];
-  return static_cast<uint32_t>(A | (B << 8) | (C << 16) | (D << 24));
-}
-
-inline void u16_to_u8(uint16_t val, uint8_t *buff) {
-  buff[0] = static_cast<uint8_t>(val);
-  buff[1] = static_cast<uint8_t>(val >> 8);
-}
-
-inline void u32_to_u8(uint32_t val, uint8_t *buff) {
-  buff[0] = static_cast<uint8_t>(val);
-  buff[1] = static_cast<uint8_t>(val >> 8);
-  buff[2] = static_cast<uint8_t>(val >> 16);
-  buff[3] = static_cast<uint8_t>(val >> 24);
-}
-
-#define ARRAY_CT(x) (sizeof(x) / sizeof(x[0]))
+#endif
 
 #endif

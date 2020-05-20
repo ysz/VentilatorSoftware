@@ -188,8 +188,9 @@ public:
   uint16_t serialBytesAvailableForWrite();
 
   // Serial port used for debugging
-  uint16_t debugWrite(const char *buf, uint16_t len);
-  uint16_t debugRead(char *buf, uint16_t len);
+  [[nodiscard]] uint16_t debugWrite(const char *buf, uint16_t len);
+  [[nodiscard]] uint16_t debugRead(char *buf, uint16_t len);
+  uint16_t debugBytesAvailableForRead();
   uint16_t debugBytesAvailableForWrite();
 
 #ifndef TEST_MODE
@@ -440,6 +441,8 @@ inline uint16_t HalApi::debugWrite(const char *buf, uint16_t len) {
   return len;
 }
 inline uint16_t HalApi::debugRead(char *buf, uint16_t len) { return 0; }
+inline uint16_t HalApi::debugBytesAvailableForRead() { return 0; }
+inline uint16_t HalApi::debugBytesAvailableForWrite() { return 0; }
 
 inline void HalApi::startLoopTimer(const Duration &period,
                                    void (*callback)(void *), void *arg) {}
