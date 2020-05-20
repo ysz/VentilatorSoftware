@@ -59,6 +59,7 @@ template <class Transport> void FramingRxFSM<Transport>::onCharacterMatch() {
     } else if (transport.receivedBytesCount() == 1) {
       state = STATE_RX_FRAME;
     } else {
+      // TODO alert, safe reset
       // Should never end up here
       // DMA is not working?
     }
@@ -67,18 +68,20 @@ template <class Transport> void FramingRxFSM<Transport>::onCharacterMatch() {
     if (transport.receivedBytesCount() == 1) {
       state = STATE_RX_FRAME;
     } else {
-      // some junk received during start wait,
+      // some junk received while waiting for start marker,
       // but should have been just silence
       errorCounter++;
       state = STATE_LOST;
     }
     break;
   case STATE_RX_FRAME:
+    // end marker received, check if we got something
     if (transport.receivedBytesCount() > 1) {
       processReceivedData();
       state = STATE_WAIT_START;
     } else {
       // repeated marker char received
+      // assume we are still good
     }
     break;
   }
