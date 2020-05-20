@@ -596,18 +596,18 @@ public:
 
   // This is the interrupt handler for the UART.
   void ISR() {
-    // Check for overrun error and framing errors.  Clear those errors if
-    // they're set to avoid further interrupts from them.
-    if (reg->status.s.fe || reg->status.s.ore) {
+    // Check for over run error and framing errors.
+    // Clear those errors if they're set to avoid
+    // further interrupts from them.
+    if (reg->status & 0x000A)
       reg->intClear = 0x000A;
-    }
 
     // See if we received a new byte
-    if (reg->status.s.rxne)
+    if (reg->status & 0x0020)
       rxDat.Put(static_cast<uint8_t>(reg->rxDat));
 
     // Check for transmit data register empty
-    if (reg->status.s.txe && reg->ctrl1.s.txeie) {
+    if (0 != (reg->status & 0x0080 & reg->ctrl1.r)) {
       int ch = txDat.Get();
 
       // If there's nothing left in the transmit buffer,
