@@ -88,7 +88,7 @@ public:
       return false;
     }
     uint8_t tx_buffer[(GuiStatus_size + 4) * 2 + 2];
-    uint32_t encoded_length = encodeFrame(pb_buffer, stream.bytes_written + 4,
+    uint32_t encoded_length = EncodeFrame(pb_buffer, stream.bytes_written + 4,
                                           tx_buffer, sizeof(tx_buffer));
     if (0 == encoded_length) {
       qCritical() << "Could not frame serialized GuiStatus";

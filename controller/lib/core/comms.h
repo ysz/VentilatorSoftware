@@ -32,9 +32,9 @@ limitations under the License.
 class Comms : public UART_DMA_TxListener {
 public:
   UART_DMA &uart_dma;
-  FramingRxFSM<HalTransport> rxFSM;
-  Comms(UART_DMA &uart_dma, FramingRxFSM<HalTransport> &rxFSM)
-      : uart_dma(uart_dma), rxFSM(rxFSM){};
+  FramingRxFSM<HalTransport> rx_fsm;
+  Comms(UART_DMA &uart_dma, FramingRxFSM<HalTransport> &rx_fsm)
+      : uart_dma(uart_dma), rx_fsm(rx_fsm){};
   void init();
   void onTxComplete() override;
   void onTxError() override;
@@ -52,7 +52,7 @@ private:
   bool is_transmitting();
   void process_tx(const ControllerStatus &controller_status);
   void process_rx(GuiStatus *gui_status);
-  uint32_t createFrame(const ControllerStatus &controller_status);
+  uint32_t CreateFrame(const ControllerStatus &controller_status);
 
   // Our outgoing frame (ControllerStatus proto serialized, crc'd and escaped)
   // is stored in tx_buffer.  We then give it to DMA-UART to transmit.

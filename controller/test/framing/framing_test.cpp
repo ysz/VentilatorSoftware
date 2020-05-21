@@ -1,7 +1,9 @@
 #include "framing.h"
-#include "gtest/gtest.h"
+
 #include <stdio.h>
 #include <stdlib.h>
+
+#include "gtest/gtest.h"
 
 void randomConversion() {
   constexpr uint32_t SLENGTH = 150;
@@ -13,10 +15,10 @@ void randomConversion() {
     source_buf[i] = static_cast<uint8_t>(rand() % 255);
   }
 
-  uint32_t frameLength = encodeFrame(source_buf, SLENGTH, dest_buf, DLENGTH);
+  uint32_t frameLength = EncodeFrame(source_buf, SLENGTH, dest_buf, DLENGTH);
   ASSERT_GT(frameLength, SLENGTH);
   uint32_t decodedLength =
-      decodeFrame(dest_buf, frameLength, decoded_buf, SLENGTH);
+      DecodeFrame(dest_buf, frameLength, decoded_buf, SLENGTH);
   ASSERT_EQ(decodedLength, SLENGTH);
   int n = memcmp(source_buf, decoded_buf, SLENGTH);
   ASSERT_EQ(n, 0);

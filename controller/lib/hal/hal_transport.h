@@ -9,15 +9,15 @@ class HalTransport {
   // safe.
   static constexpr uint32_t RX_BUF_LEN = (GuiStatus_size + 4) * 2 + 2;
   static constexpr uint32_t RX_BYTES_MAX = RX_BUF_LEN;
-  uint8_t rx_buf[RX_BUF_LEN];
+  uint8_t rx_buf_[RX_BUF_LEN];
   static constexpr uint32_t RX_TIMEOUT = 115200 * 10;
 
 public:
   HalTransport(UART_DMA &uart_dma) : uart_dma(uart_dma){};
-  void begin(UART_DMA_RxListener *);
-  void restartRX(UART_DMA_RxListener *);
-  uint32_t receivedBytesCount();
-  uint8_t *get_rx_buf() { return rx_buf; }
+  void Begin(UART_DMA_RxListener *);
+  void RestartRX(UART_DMA_RxListener *);
+  uint32_t ReceivedLength();
+  uint8_t *get_rx_buf() { return rx_buf_; }
 #ifdef TEST_MODE
   void test_PutRxBuffer(uint8_t *buf, uint32_t len);
 #endif

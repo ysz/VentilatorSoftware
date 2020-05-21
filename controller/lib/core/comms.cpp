@@ -12,7 +12,7 @@
 #include "uart_dma.h"
 
 // extern UART_DMA dmaUART;
-// extern FramingRxFSM rxFSM;
+// extern FramingRxFSM rx_fsm;
 
 // Note that the initial value of last_tx has to be invalid; changing it to 0
 // wouldn't work.  We immediately transmit on boot, and after
@@ -32,7 +32,7 @@ void Comms::onTxError() {}
 // Serializes current controller status, adds crc and escapes it.
 // The resulting frame is written into tx buffer.
 // Returns the length of the resulting frame.
-uint32_t Comms::createFrame(const ControllerStatus &controller_status) {
+uint32_t Comms::CreateFrame(const ControllerStatus &controller_status) {
   uint8_t pb_buffer[ControllerStatus_size + 4];
 
   pb_ostream_t stream = pb_ostream_from_buffer(pb_buffer, sizeof(pb_buffer));
@@ -47,7 +47,7 @@ uint32_t Comms::createFrame(const ControllerStatus &controller_status) {
     // TODO log an error, output buffer too small
   }
 
-  return encodeFrame(pb_buffer, pb_data_len + 4, tx_buffer, TX_BUF_LEN);
+  return EncodeFrame(pb_buffer, pb_data_len + 4, tx_buffer, TX_BUF_LEN);
 }
 
 void Comms::process_tx(const ControllerStatus &controller_status) {
@@ -56,7 +56,7 @@ void Comms::process_tx(const ControllerStatus &controller_status) {
   //  - it's been a while since we last transmitted.
 
   if (!is_transmitting() && is_time_to_transmit()) {
-    uint32_t frame_len = createFrame(controller_status);
+    uint32_t frame_len = CreateFrame(controller_status);
     if (frame_len > 0) {
       uart_dma.startTX(tx_buffer, frame_len, this);
       last_tx = Hal.now();
@@ -72,12 +72,12 @@ void Comms::process_tx(const ControllerStatus &controller_status) {
 inline bool is_crc_pass(uint8_t *buf, uint32_t len) {
   return Hal.crc32(buf, len - 4) == extract_crc(buf, len);
 }
-#include <stdio.h>
+
 void Comms::process_rx(GuiStatus *gui_status) {
-  if (rxFSM.isDataAvailable()) {
-    uint8_t *buf = rxFSM.getReceivedBuf();
-    uint32_t len = rxFSM.getReceivedLength();
-    uint32_t decoded_length = decodeFrame(buf, len, buf, len);
+  if (rx_fsm.is_frame_available()) {
+    uint8_t *buf = rx_fsm.get_received_buf();
+    uint32_t len = rx_fsm.get_received_length();
+    uint32_t decoded_length = DecodeFrame(buf, len, buf, len);
     if (is_crc_pass(buf, decoded_length)) {
       pb_istream_t stream = pb_istream_from_buffer(buf, decoded_length - 4);
       GuiStatus new_gui_status = GuiStatus_init_zero;
@@ -93,7 +93,7 @@ void Comms::process_rx(GuiStatus *gui_status) {
   }
 }
 
-void Comms::init() { rxFSM.begin(); }
+void Comms::init() { rx_fsm.Begin(); }
 
 void Comms::handler(const ControllerStatus &controller_status,
                     GuiStatus *gui_status) {

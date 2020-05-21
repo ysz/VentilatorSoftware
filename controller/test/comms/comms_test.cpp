@@ -50,11 +50,11 @@ void fakeRx() {
 }
 
 void HalTransport::test_PutRxBuffer(uint8_t *buf, uint32_t len) {
-  memcpy(rx_buf, buf, len);
+  memcpy(rx_buf_, buf, len);
 }
 
 void Comms::test_PutRxBuffer(uint8_t *buf, uint32_t len) {
-  rxFSM.test_PutRxBuffer(buf, len);
+  rx_fsm.test_PutRxBuffer(buf, len);
 }
 
 void UART_DMA::stopRX(){};
@@ -62,8 +62,8 @@ void UART_DMA::charMatchEnable(){};
 
 UART_DMA uart_dma = UART_DMA();
 HalTransport hal_transport(uart_dma);
-FramingRxFSM<HalTransport> rxFSM(hal_transport);
-Comms comms(uart_dma, rxFSM);
+FramingRxFSM<HalTransport> rx_fsm(hal_transport);
+Comms comms(uart_dma, rx_fsm);
 
 TEST(CommTests, SendControllerStatus) {
   // Initialize a large ControllerStatus so as to force multiple calls to
@@ -100,7 +100,7 @@ TEST(CommTests, SendControllerStatus) {
   }
   uint8_t decoded_buf[ControllerStatus_size + 4];
   uint32_t decoded_length =
-      decodeFrame(tx_buffer, tx_length, decoded_buf, ControllerStatus_size + 4);
+      DecodeFrame(tx_buffer, tx_length, decoded_buf, ControllerStatus_size + 4);
 
   ASSERT_GT(decoded_length, static_cast<uint32_t>(0));
   pb_istream_t stream = pb_istream_from_buffer(
@@ -146,7 +146,7 @@ TEST(CommTests, CommandRx) {
   bool crc_appened = append_crc(pb_buf, len, GuiStatus_size + 4, crc32);
   EXPECT_TRUE(crc_appened);
   uint32_t encoded_length =
-      encodeFrame(pb_buf, len + 4, rx_buffer, sizeof(rx_buffer));
+      EncodeFrame(pb_buf, len + 4, rx_buffer, sizeof(rx_buffer));
   EXPECT_GT(encoded_length, (uint32_t)0);
 
   ControllerStatus controller_status_ignored = ControllerStatus_init_zero;

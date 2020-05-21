@@ -7,23 +7,23 @@ template <class Transport> class FramingRxFSM : public UART_DMA_RxListener {
   enum State_t { STATE_LOST, STATE_WAIT_START, STATE_RX_FRAME };
 
 private:
-  Transport transport;
+  Transport transport_;
   State_t state = STATE_LOST;
-  uint32_t errorCounter = 0;
-  bool isNewOutBufReady = false;
+  uint32_t error_counter_ = 0;
+  bool frame_available_ = false;
   static constexpr uint32_t RX_BUF_LEN = (GuiStatus_size + 4) * 2 + 2;
   uint8_t out_buf[RX_BUF_LEN];
   uint32_t out_buf_length = 0;
 
 public:
-  FramingRxFSM(Transport t) : transport(t){};
-  void begin();
+  FramingRxFSM(Transport t) : transport_(t){};
+  void Begin();
   void onRxComplete() override;
   void onCharacterMatch() override;
   void onRxError(RxError_t e) override;
-  uint8_t *getReceivedBuf();
-  uint32_t getReceivedLength();
-  bool isDataAvailable();
+  uint8_t *get_received_buf();
+  uint32_t get_received_length();
+  bool is_frame_available();
 #ifdef TEST_MODE
   void test_PutRxBuffer(uint8_t *buf, uint32_t len);
 #endif
@@ -32,18 +32,18 @@ private:
   void processReceivedData();
 };
 
-template <class Transport> void FramingRxFSM<Transport>::begin() {
+template <class Transport> void FramingRxFSM<Transport>::Begin() {
   state = STATE_LOST;
-  transport.begin(this);
+  transport_.Begin(this);
 }
 
 template <class Transport> void FramingRxFSM<Transport>::onRxComplete() {
   // We should never reach the full read of rx buffer.
   // If we get here, this means, there are no marker
   // chars in the stream, so we are lost
-  errorCounter++;
+  error_counter_++;
   state = STATE_LOST;
-  transport.restartRX(this);
+  transport_.RestartRX(this);
 }
 
 template <class Transport> void FramingRxFSM<Transport>::onCharacterMatch() {
@@ -52,11 +52,11 @@ template <class Transport> void FramingRxFSM<Transport>::onCharacterMatch() {
     // if we have received something before this marker,
     // we assume, this is the frame end marker, so wait
     // for start
-    if (transport.receivedBytesCount() > 1) {
+    if (transport_.ReceivedLength() > 1) {
       state = STATE_WAIT_START;
       // if we were lucky to get lost in the interframe silence,
       // assume this is the start of the frame
-    } else if (transport.receivedBytesCount() == 1) {
+    } else if (transport_.ReceivedLength() == 1) {
       state = STATE_RX_FRAME;
     } else {
       // TODO alert, safe reset
@@ -65,18 +65,18 @@ template <class Transport> void FramingRxFSM<Transport>::onCharacterMatch() {
     }
     break;
   case STATE_WAIT_START:
-    if (transport.receivedBytesCount() == 1) {
+    if (transport_.ReceivedLength() == 1) {
       state = STATE_RX_FRAME;
     } else {
       // some junk received while waiting for start marker,
       // but should have been just silence
-      errorCounter++;
+      error_counter_++;
       state = STATE_LOST;
     }
     break;
   case STATE_RX_FRAME:
     // end marker received, check if we got something
-    if (transport.receivedBytesCount() > 1) {
+    if (transport_.ReceivedLength() > 1) {
       processReceivedData();
       state = STATE_WAIT_START;
     } else {
@@ -85,7 +85,7 @@ template <class Transport> void FramingRxFSM<Transport>::onCharacterMatch() {
     }
     break;
   }
-  transport.restartRX(this);
+  transport_.RestartRX(this);
 }
 
 template <class Transport>
@@ -99,35 +99,36 @@ void FramingRxFSM<Transport>::onRxError(RxError_t e) {
     state = STATE_LOST;
     break;
   }
-  errorCounter++;
+  error_counter_++;
 };
 
 template <class Transport> void FramingRxFSM<Transport>::processReceivedData() {
   // we strip markers from the stream, but that does not influence the frame
   // decoder code
-  out_buf_length = transport.receivedBytesCount() - 1;
-  memcpy(out_buf, transport.get_rx_buf(), out_buf_length);
-  isNewOutBufReady = true;
+  out_buf_length = transport_.ReceivedLength() - 1;
+  memcpy(out_buf, transport_.get_rx_buf(), out_buf_length);
+  frame_available_ = true;
 }
 
-template <class Transport> uint8_t *FramingRxFSM<Transport>::getReceivedBuf() {
-  isNewOutBufReady = false;
+template <class Transport>
+uint8_t *FramingRxFSM<Transport>::get_received_buf() {
+  frame_available_ = false;
   return out_buf;
 }
 
 template <class Transport>
-uint32_t FramingRxFSM<Transport>::getReceivedLength() {
+uint32_t FramingRxFSM<Transport>::get_received_length() {
   return out_buf_length;
 }
 
-template <class Transport> bool FramingRxFSM<Transport>::isDataAvailable() {
-  return isNewOutBufReady;
+template <class Transport> bool FramingRxFSM<Transport>::is_frame_available() {
+  return frame_available_;
 }
 
 #ifdef TEST_MODE
 template <class Transport>
 void FramingRxFSM<Transport>::test_PutRxBuffer(uint8_t *buf, uint32_t len) {
-  transport.test_PutRxBuffer(buf, len);
+  transport_.test_PutRxBuffer(buf, len);
 }
 #endif
 
