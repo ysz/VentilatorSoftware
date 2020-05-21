@@ -1,17 +1,18 @@
 #include "framing.h"
 
 #include <stdint.h>
-#include <stdio.h>
 
-inline bool shouldEscape(uint8_t b) { return MARK == b || ESC == b; }
+inline bool shouldEscape(uint8_t b) {
+  return FRAMING_MARK == b || FRAMING_ESC == b;
+}
 
 uint32_t EncodeFrame(uint8_t *source, uint32_t sourceLength, uint8_t *dest,
                      uint32_t destLength) {
   uint32_t i = 0;
-  dest[i++] = MARK;
+  dest[i++] = FRAMING_MARK;
   for (uint32_t j = 0; j < sourceLength; j++) {
     if (shouldEscape(source[j])) {
-      dest[i++] = ESC;
+      dest[i++] = FRAMING_ESC;
       dest[i++] = source[j] ^ 0x20;
     } else {
       dest[i++] = source[j];
@@ -20,7 +21,7 @@ uint32_t EncodeFrame(uint8_t *source, uint32_t sourceLength, uint8_t *dest,
       return 0;
     }
   }
-  dest[i++] = MARK;
+  dest[i++] = FRAMING_MARK;
   return i;
 }
 
@@ -30,9 +31,9 @@ uint32_t DecodeFrame(uint8_t *source, uint32_t sourceLength, uint8_t *dest,
   bool isEsc = false;
   for (uint32_t j = 0; j < sourceLength; j++) {
     switch (source[j]) {
-    case MARK:
+    case FRAMING_MARK:
       break;
-    case ESC:
+    case FRAMING_ESC:
       isEsc = true;
       break;
     default:

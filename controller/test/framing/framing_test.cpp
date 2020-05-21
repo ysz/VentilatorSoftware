@@ -40,7 +40,7 @@ TEST(FramingTests, EncodingDestTooSmall) {
   frameLength = EncodeFrame(source_buf, sizeof(source_buf), dest_buf, 6);
   ASSERT_GT(frameLength, (uint32_t)0);
 
-  uint8_t source_buf2[] = {0, ESC, 1, MARK, 2, 3};
+  uint8_t source_buf2[] = {0, FRAMING_ESC, 1, FRAMING_MARK, 2, 3};
 
   frameLength = EncodeFrame(source_buf2, sizeof(source_buf2), dest_buf, 7);
   ASSERT_EQ(frameLength, (uint32_t)0);
@@ -49,7 +49,7 @@ TEST(FramingTests, EncodingDestTooSmall) {
 }
 
 TEST(FramingTests, DecodingDestTooSmall) {
-  uint8_t source_buf[] = {MARK, 0, 1, 2, 3, MARK};
+  uint8_t source_buf[] = {FRAMING_MARK, 0, 1, 2, 3, FRAMING_MARK};
   uint8_t dest_buf[10];
 
   uint32_t frameLength =

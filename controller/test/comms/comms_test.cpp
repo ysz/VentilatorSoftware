@@ -107,7 +107,7 @@ void HalTransport::test_PutByte(uint8_t b) {
 void fake_rx(uint32_t encoded_length) {
   for (uint32_t i = 0; i < encoded_length; i++) {
     hal_transport.test_PutByte(fake_frame[i]);
-    if (MARK == fake_frame[i]) {
+    if (FRAMING_MARK == fake_frame[i]) {
       rx_listener->onCharacterMatch();
     }
   }

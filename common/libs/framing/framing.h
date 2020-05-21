@@ -2,8 +2,8 @@
 #define __FRAMING_H
 #include <stdint.h>
 
-constexpr uint8_t MARK = 0xE2;
-constexpr uint8_t ESC = 0x27;
+constexpr uint8_t FRAMING_MARK = 0xE2;
+constexpr uint8_t FRAMING_ESC = 0x27;
 
 uint32_t EncodeFrame(uint8_t *source, uint32_t sourceLength, uint8_t *dest,
                      uint32_t destLength);
