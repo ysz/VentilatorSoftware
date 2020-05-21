@@ -14,10 +14,6 @@
 uint8_t tx_buffer[(ControllerStatus_size + 4) * 2 + 2];
 uint32_t tx_length = 0;
 bool is_txing = false;
-uint8_t rx_buffer[(GuiStatus_size + 4) * 2 + 2];
-UART_DMA_RxListener *rx_listener;
-uint32_t rx_i = 0;
-uint32_t rx_length = 0;
 
 void UART_DMA::init(int baud){};
 bool UART_DMA::isTxInProgress() { return false; }
@@ -31,41 +27,13 @@ bool UART_DMA::startTX(const uint8_t *buf, uint32_t length,
 };
 
 void UART_DMA::stopTX(){};
-
-uint32_t UART_DMA::getRxBytesLeft() { return rx_length - rx_i - 1; };
-
-bool UART_DMA::startRX(const uint8_t *buf, const uint32_t length,
-                       const uint32_t timeout, UART_DMA_RxListener *rxl) {
-  rx_length = length;
-  rx_listener = rxl;
-  return true;
-};
-
-void fakeRx() {
-  for (rx_i = 0; rx_i < rx_length; rx_i++) {
-    if (MARK == rx_buffer[rx_i]) {
-      rx_listener->onCharacterMatch();
-    }
-  }
-}
-
-void HalTransport::test_PutRxBuffer(uint8_t *buf, uint32_t len) {
-  memcpy(rx_buf_, buf, len);
-}
-
-void Comms::test_PutRxBuffer(uint8_t *buf, uint32_t len) {
-  rx_fsm.test_PutRxBuffer(buf, len);
-}
-
 void UART_DMA::stopRX(){};
 void UART_DMA::charMatchEnable(){};
 
 UART_DMA uart_dma = UART_DMA();
-HalTransport hal_transport(uart_dma);
-FramingRxFSM<HalTransport> rx_fsm(hal_transport);
-Comms comms(uart_dma, rx_fsm);
 
 TEST(CommTests, SendControllerStatus) {
+  Comms comms;
   // Initialize a large ControllerStatus so as to force multiple calls to
   // comms_handler to send it.
   ControllerStatus s = ControllerStatus_init_zero;
@@ -103,6 +71,7 @@ TEST(CommTests, SendControllerStatus) {
       DecodeFrame(tx_buffer, tx_length, decoded_buf, ControllerStatus_size + 4);
 
   ASSERT_GT(decoded_length, static_cast<uint32_t>(0));
+
   pb_istream_t stream = pb_istream_from_buffer(
       reinterpret_cast<unsigned char *>(decoded_buf), decoded_length - 4);
 
@@ -115,7 +84,38 @@ TEST(CommTests, SendControllerStatus) {
             sent.sensor_readings.patient_pressure_cm_h2o);
 }
 
+uint8_t fake_frame[(GuiStatus_size + 4) * 2 + 2];
+UART_DMA_RxListener *rx_listener;
+uint32_t rx_i = 0;
+uint32_t rx_length = 0;
+
+uint32_t UART_DMA::getRxBytesLeft() { return rx_length - rx_i; };
+
+bool UART_DMA::startRX(const uint8_t *buf, uint32_t length, uint32_t timeout,
+                       UART_DMA_RxListener *rxl) {
+  rx_length = length;
+  rx_listener = rxl;
+  rx_i = 0;
+  return true;
+};
+
+void HalTransport::test_PutByte(uint8_t b) {
+  // printf("[%d] ", b);
+  rx_buf_[rx_i++] = b;
+}
+
+void fake_rx(uint32_t encoded_length) {
+  for (uint32_t i = 0; i < encoded_length; i++) {
+    hal_transport.test_PutByte(fake_frame[i]);
+    if (MARK == fake_frame[i]) {
+      rx_listener->onCharacterMatch();
+    }
+  }
+  rx_listener->onRxComplete();
+}
+
 TEST(CommTests, CommandRx) {
+  Comms comms;
   GuiStatus s = GuiStatus_init_zero;
   s.uptime_ms = std::numeric_limits<uint32_t>::max() / 2;
   s.desired_params.mode = VentMode_PRESSURE_CONTROL;
@@ -146,14 +146,14 @@ TEST(CommTests, CommandRx) {
   bool crc_appened = append_crc(pb_buf, len, GuiStatus_size + 4, crc32);
   EXPECT_TRUE(crc_appened);
   uint32_t encoded_length =
-      EncodeFrame(pb_buf, len + 4, rx_buffer, sizeof(rx_buffer));
+      EncodeFrame(pb_buf, len + 4, fake_frame, sizeof(fake_frame));
   EXPECT_GT(encoded_length, (uint32_t)0);
 
   ControllerStatus controller_status_ignored = ControllerStatus_init_zero;
   GuiStatus received = GuiStatus_init_zero;
   comms.init();
-  comms.test_PutRxBuffer(rx_buffer, sizeof(rx_buffer));
-  fakeRx();
+  // comms.test_PutRxBuffer(fake_frame, sizeof(fake_frame));
+  fake_rx(encoded_length);
   comms.handler(controller_status_ignored, &received);
 
   // Run comms_handler until it updates GuiStatus.  10 iterations should be

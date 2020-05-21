@@ -1,5 +1,4 @@
 #include "hal_transport.h"
-
 #include "uart_dma.h"
 
 void HalTransport::Begin(UART_DMA_RxListener *rxl) {

@@ -35,16 +35,16 @@ TEST(FramingTests, EncodingDestTooSmall) {
   uint8_t dest_buf[20];
 
   uint32_t frameLength =
-      encodeFrame(source_buf, sizeof(source_buf), dest_buf, 5);
+      EncodeFrame(source_buf, sizeof(source_buf), dest_buf, 5);
   ASSERT_EQ(frameLength, (uint32_t)0);
-  frameLength = encodeFrame(source_buf, sizeof(source_buf), dest_buf, 6);
+  frameLength = EncodeFrame(source_buf, sizeof(source_buf), dest_buf, 6);
   ASSERT_GT(frameLength, (uint32_t)0);
 
   uint8_t source_buf2[] = {0, ESC, 1, MARK, 2, 3};
 
-  frameLength = encodeFrame(source_buf2, sizeof(source_buf2), dest_buf, 7);
+  frameLength = EncodeFrame(source_buf2, sizeof(source_buf2), dest_buf, 7);
   ASSERT_EQ(frameLength, (uint32_t)0);
-  frameLength = encodeFrame(source_buf2, sizeof(source_buf2), dest_buf, 10);
+  frameLength = EncodeFrame(source_buf2, sizeof(source_buf2), dest_buf, 10);
   ASSERT_GT(frameLength, (uint32_t)0);
 }
 
@@ -53,8 +53,8 @@ TEST(FramingTests, DecodingDestTooSmall) {
   uint8_t dest_buf[10];
 
   uint32_t frameLength =
-      decodeFrame(source_buf, sizeof(source_buf), dest_buf, 3);
+      DecodeFrame(source_buf, sizeof(source_buf), dest_buf, 3);
   ASSERT_EQ(frameLength, (uint32_t)0);
-  frameLength = decodeFrame(source_buf, sizeof(source_buf), dest_buf, 4);
+  frameLength = DecodeFrame(source_buf, sizeof(source_buf), dest_buf, 4);
   ASSERT_GT(frameLength, (uint32_t)0);
 }

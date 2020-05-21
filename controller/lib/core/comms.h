@@ -29,12 +29,16 @@ limitations under the License.
 // messages from the GUI.  The only way it communicates with other modules is
 // by modifying the gui_status pointer in comms_handler.
 
+extern UART_DMA uart_dma;
+extern HalTransport hal_transport;
+extern FramingRxFSM<HalTransport> rx_fsm;
+
 class Comms : public UART_DMA_TxListener {
+  UART_DMA &uart_dma_;
+  FramingRxFSM<HalTransport> &rx_fsm_;
+
 public:
-  UART_DMA &uart_dma;
-  FramingRxFSM<HalTransport> rx_fsm;
-  Comms(UART_DMA &uart_dma, FramingRxFSM<HalTransport> &rx_fsm)
-      : uart_dma(uart_dma), rx_fsm(rx_fsm){};
+  Comms() : uart_dma_(uart_dma), rx_fsm_(rx_fsm){};
   void init();
   void onTxComplete() override;
   void onTxError() override;
@@ -43,9 +47,6 @@ public:
   // gui_status accordingly.
   void handler(const ControllerStatus &controller_status,
                GuiStatus *gui_status);
-#ifdef TEST_MODE
-  void test_PutRxBuffer(uint8_t *buf, uint32_t len);
-#endif
 
 private:
   bool is_time_to_transmit();

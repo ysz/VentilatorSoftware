@@ -19,7 +19,7 @@ public:
   uint32_t ReceivedLength();
   uint8_t *get_rx_buf() { return rx_buf_; }
 #ifdef TEST_MODE
-  void test_PutRxBuffer(uint8_t *buf, uint32_t len);
+  void test_PutByte(uint8_t b);
 #endif
 };
 #endif

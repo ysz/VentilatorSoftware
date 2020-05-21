@@ -3,11 +3,11 @@
 
 #include "network_protocol.pb.h"
 #include "uart_dma.h"
+
 template <class Transport> class FramingRxFSM : public UART_DMA_RxListener {
   enum State_t { STATE_LOST, STATE_WAIT_START, STATE_RX_FRAME };
 
-private:
-  Transport transport_;
+  Transport &transport_;
   State_t state = STATE_LOST;
   uint32_t error_counter_ = 0;
   bool frame_available_ = false;
@@ -16,7 +16,7 @@ private:
   uint32_t out_buf_length = 0;
 
 public:
-  FramingRxFSM(Transport t) : transport_(t){};
+  FramingRxFSM(Transport &t) : transport_(t){};
   void Begin();
   void onRxComplete() override;
   void onCharacterMatch() override;
@@ -24,9 +24,6 @@ public:
   uint8_t *get_received_buf();
   uint32_t get_received_length();
   bool is_frame_available();
-#ifdef TEST_MODE
-  void test_PutRxBuffer(uint8_t *buf, uint32_t len);
-#endif
 
 private:
   void processReceivedData();
@@ -54,11 +51,14 @@ template <class Transport> void FramingRxFSM<Transport>::onCharacterMatch() {
     // for start
     if (transport_.ReceivedLength() > 1) {
       state = STATE_WAIT_START;
+      // printf("\nLOST > WAIT_START\n");
       // if we were lucky to get lost in the interframe silence,
       // assume this is the start of the frame
     } else if (transport_.ReceivedLength() == 1) {
       state = STATE_RX_FRAME;
+      // printf("\nLOST > RX_FRAME\n");
     } else {
+      // printf("!!!! DMA not working!");
       // TODO alert, safe reset
       // Should never end up here
       // DMA is not working?
@@ -66,20 +66,24 @@ template <class Transport> void FramingRxFSM<Transport>::onCharacterMatch() {
     break;
   case STATE_WAIT_START:
     if (transport_.ReceivedLength() == 1) {
+      // printf("\nWAIT_START > RX_FRAME\n");
       state = STATE_RX_FRAME;
     } else {
       // some junk received while waiting for start marker,
       // but should have been just silence
       error_counter_++;
       state = STATE_LOST;
+      // printf("! JUNK!");
     }
     break;
   case STATE_RX_FRAME:
     // end marker received, check if we got something
     if (transport_.ReceivedLength() > 1) {
       processReceivedData();
+      // printf("\nRX_FRAME > WAIT_START\n");
       state = STATE_WAIT_START;
     } else {
+      // printf("! REPEAT MARK");
       // repeated marker char received
       // assume we are still good
     }
@@ -125,11 +129,11 @@ template <class Transport> bool FramingRxFSM<Transport>::is_frame_available() {
   return frame_available_;
 }
 
-#ifdef TEST_MODE
-template <class Transport>
-void FramingRxFSM<Transport>::test_PutRxBuffer(uint8_t *buf, uint32_t len) {
-  transport_.test_PutRxBuffer(buf, len);
-}
-#endif
+// #ifdef TEST_MODE
+// template <class Transport>
+// void FramingRxFSM<Transport>::test_PutRxBuffer(uint8_t *buf, uint32_t len) {
+//   transport_.test_PutRxBuffer(buf, len);
+// }
+// #endif
 
 #endif

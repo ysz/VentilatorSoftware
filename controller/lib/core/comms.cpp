@@ -11,8 +11,10 @@
 #include "network_protocol.pb.h"
 #include "uart_dma.h"
 
-// extern UART_DMA dmaUART;
-// extern FramingRxFSM rx_fsm;
+extern UART_DMA uart_dma;
+
+HalTransport hal_transport(uart_dma);
+FramingRxFSM<HalTransport> rx_fsm(hal_transport);
 
 // Note that the initial value of last_tx has to be invalid; changing it to 0
 // wouldn't work.  We immediately transmit on boot, and after
@@ -23,7 +25,7 @@ inline bool Comms::is_time_to_transmit() {
   return (last_tx == kInvalidTime || Hal.now() - last_tx > TX_INTERVAL);
 }
 
-inline bool Comms::is_transmitting() { return uart_dma.isTxInProgress(); }
+inline bool Comms::is_transmitting() { return uart_dma_.isTxInProgress(); }
 
 void Comms::onTxComplete() {}
 
@@ -58,7 +60,7 @@ void Comms::process_tx(const ControllerStatus &controller_status) {
   if (!is_transmitting() && is_time_to_transmit()) {
     uint32_t frame_len = CreateFrame(controller_status);
     if (frame_len > 0) {
-      uart_dma.startTX(tx_buffer, frame_len, this);
+      uart_dma_.startTX(tx_buffer, frame_len, this);
       last_tx = Hal.now();
     } else {
       // TODO log an error
@@ -74,9 +76,10 @@ inline bool is_crc_pass(uint8_t *buf, uint32_t len) {
 }
 
 void Comms::process_rx(GuiStatus *gui_status) {
-  if (rx_fsm.is_frame_available()) {
-    uint8_t *buf = rx_fsm.get_received_buf();
-    uint32_t len = rx_fsm.get_received_length();
+  if (rx_fsm_.is_frame_available()) {
+    uint8_t *buf = rx_fsm_.get_received_buf();
+    uint32_t len = rx_fsm_.get_received_length();
+
     uint32_t decoded_length = DecodeFrame(buf, len, buf, len);
     if (is_crc_pass(buf, decoded_length)) {
       pb_istream_t stream = pb_istream_from_buffer(buf, decoded_length - 4);
@@ -84,16 +87,18 @@ void Comms::process_rx(GuiStatus *gui_status) {
       if (pb_decode(&stream, GuiStatus_fields, &new_gui_status)) {
         *gui_status = new_gui_status;
       } else {
+        // printf("! could not decode");
         // TODO: Log an error.
       }
       last_rx = Hal.now();
     } else {
+      // printf("! CRC mismatch\n");
       // TODO CRC mismatch; log an error
     }
   }
 }
 
-void Comms::init() { rx_fsm.Begin(); }
+void Comms::init() { rx_fsm_.Begin(); }
 
 void Comms::handler(const ControllerStatus &controller_status,
                     GuiStatus *gui_status) {
