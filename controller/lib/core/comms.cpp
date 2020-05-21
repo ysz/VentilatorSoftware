@@ -3,6 +3,7 @@
 #include "algorithm.h"
 #include "hal.h"
 #include "network_protocol.pb.h"
+#include "stream.h"
 #include <optional>
 #include <pb_common.h>
 #include <pb_decode.h>
@@ -24,20 +25,6 @@ static uint16_t tx_bytes_remaining = 0;
 // Time when we started sending the last ControllerStatus.
 static std::optional<Time> last_tx;
 
-// Our incoming (serialized) GuiStatus proto is incrementally buffered in
-// rx_buffer until it's complete and we can deserialize it to a proto.
-//
-// Like tx_buffer, this isn't a circular buffer; the beginning of the proto is
-// always at the beginning of the buffer.
-static uint8_t rx_buffer[GuiStatus_size];
-static uint16_t rx_idx = 0;
-static Time last_rx = Hal.now();
-static bool rx_in_progress = false;
-
-// We currently lack proper message framing, so we use a timeout to determine
-// when the GUI is done sending us its message.
-static constexpr Duration RX_TIMEOUT = milliseconds(1);
-
 // We send a ControllerStatus every TX_INTERVAL_MS.
 
 // In Alpha build we use synchronized communication initiated by GUI cycle
@@ -46,18 +33,6 @@ static constexpr Duration RX_TIMEOUT = milliseconds(1);
 static constexpr Duration TX_INTERVAL = milliseconds(30);
 
 void comms_init() {}
-
-static bool is_time_to_process_packet() {
-  return Hal.now() - last_rx > RX_TIMEOUT;
-}
-
-// NOTE this is work in progress.
-// Proper framing incomming. Afproto will be used to encode data to form that
-// can be safely sent over wire - with packet start/end markers and CRC
-
-// TODO add frame markers
-// TODO add marker escaping in contents
-// TODO add CRC to whole packet
 
 // TODO run this via DMA to free up resources for control loops
 static void process_tx(const ControllerStatus &controller_status) {
@@ -105,32 +80,36 @@ static void process_tx(const ControllerStatus &controller_status) {
 }
 
 static void process_rx(GuiStatus *gui_status) {
+  static FramedBuffer<GuiStatus_size> buf;
+
   while (Hal.serialBytesAvailableForRead() > 0) {
-    rx_in_progress = true;
     char b;
     uint16_t bytes_read = Hal.serialRead(&b, 1);
     if (bytes_read == 1) {
-      rx_buffer[rx_idx++] = (uint8_t)b;
-      if (rx_idx >= sizeof(rx_buffer)) {
-        rx_idx = 0;
+      if (!buf.Consume(b)) {
         break;
       }
-      last_rx = Hal.now();
     }
   }
 
-  // TODO do away with timeout-based reception once we have framing in place,
-  // but it will work for Alpha build for now
-  if (rx_in_progress && is_time_to_process_packet()) {
-    pb_istream_t stream = pb_istream_from_buffer(rx_buffer, rx_idx);
+  if (buf.Error()) {
+    // Reset the buffer.
+    //
+    // TODO: Log an error.
+    buf = FramedBuffer<GuiStatus_size>();
+  }
+
+  if (buf.Eof()) {
+    pb_istream_t stream = buf.PbStream();
     GuiStatus new_gui_status = GuiStatus_init_zero;
     if (pb_decode(&stream, GuiStatus_fields, &new_gui_status)) {
       *gui_status = new_gui_status;
     } else {
       // TODO: Log an error.
     }
-    rx_idx = 0;
-    rx_in_progress = false;
+
+    // Reset the buffer.
+    buf = FramedBuffer<GuiStatus_size>();
   }
 }
 
