@@ -33,7 +33,7 @@ extern UART_DMA uart_dma;
 extern HalTransport hal_transport;
 extern FramingRxFSM<HalTransport> rx_fsm;
 
-class Comms : public UART_DMA_TxListener {
+class Comms : public TxListener {
   UART_DMA &uart_dma_;
   FramingRxFSM<HalTransport> &rx_fsm_;
 

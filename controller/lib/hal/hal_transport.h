@@ -14,8 +14,8 @@ class HalTransport {
 
 public:
   HalTransport(UART_DMA &uart_dma) : uart_dma(uart_dma){};
-  void Begin(UART_DMA_RxListener *);
-  void RestartRX(UART_DMA_RxListener *);
+  void Begin(RxListener *);
+  void RestartRX(RxListener *);
   uint32_t ReceivedLength();
   uint8_t *get_rx_buf() { return rx_buf_; }
 #ifdef TEST_MODE

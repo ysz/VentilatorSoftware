@@ -10,11 +10,10 @@ enum RxError_t {
   RX_ERROR_DMA
 };
 
-// An interface that gets called back by the driver on rx, tx complete
-// and rx character match events.
+// An interface that gets called back by the driver on events.
 // NOTE: all callbacks are called from interrupt context!
-class UART_DMA_RxListener {
- public:
+class RxListener {
+public:
   // Called on DMA RX complete
   virtual void onRxComplete() = 0;
   // Called on specified character reception
@@ -23,8 +22,8 @@ class UART_DMA_RxListener {
   virtual void onRxError(RxError_t) = 0;
 };
 
-class UART_DMA_TxListener {
- public:
+class TxListener {
+public:
   // Called on DMA TX complete
   virtual void onTxComplete() = 0;
   // Called on TX errors
@@ -34,7 +33,7 @@ class UART_DMA_TxListener {
 class DMACtrl {
   DMA_Regs *const dma;
 
- public:
+public:
   explicit DMACtrl(DMA_Regs *const dma) : dma(dma) {}
   void init() {
     // UART3 reception happens on DMA1 channel 3
@@ -49,11 +48,11 @@ class UART_DMA {
   DMA_Regs *const dma;
   uint8_t txCh;
   uint8_t rxCh;
-  UART_DMA_RxListener *rxListener;
-  UART_DMA_TxListener *txListener;
+  RxListener *rxListener;
+  TxListener *txListener;
   char matchChar;
 
- public:
+public:
 #ifdef TEST_MODE
   UART_DMA() : uart(0), dma(0){};
 #endif
@@ -71,7 +70,7 @@ class UART_DMA {
   // Returns false if DMA transmission is in progress, does not
   // interrupt previous transmission.
   // Returns true if no transmission is in progress
-  bool startTX(const uint8_t *buf, uint32_t length, UART_DMA_TxListener *txl);
+  bool startTX(const uint8_t *buf, uint32_t length, TxListener *txl);
 
   uint32_t getRxBytesLeft();
 
@@ -85,7 +84,7 @@ class UART_DMA {
   // was setup.
 
   bool startRX(const uint8_t *buf, uint32_t length, uint32_t timeout,
-               UART_DMA_RxListener *rxl);
+               RxListener *rxl);
   void stopRX();
   void charMatchEnable();
 
@@ -93,7 +92,7 @@ class UART_DMA {
   void DMA_RX_ISR();
   void DMA_TX_ISR();
 
- private:
+private:
   bool tx_in_progress;
   bool rx_in_progress;
 };

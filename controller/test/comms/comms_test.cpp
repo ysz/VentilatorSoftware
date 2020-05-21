@@ -18,8 +18,7 @@ bool is_txing = false;
 void UART_DMA::init(int baud){};
 bool UART_DMA::isTxInProgress() { return false; }
 bool UART_DMA::isRxInProgress() { return false; }
-bool UART_DMA::startTX(const uint8_t *buf, uint32_t length,
-                       UART_DMA_TxListener *txl) {
+bool UART_DMA::startTX(const uint8_t *buf, uint32_t length, TxListener *txl) {
   memcpy(tx_buffer, buf, length);
   tx_length = length;
   is_txing = true;
@@ -85,14 +84,14 @@ TEST(CommTests, SendControllerStatus) {
 }
 
 uint8_t fake_frame[(GuiStatus_size + 4) * 2 + 2];
-UART_DMA_RxListener *rx_listener;
+RxListener *rx_listener;
 uint32_t rx_i = 0;
 uint32_t rx_length = 0;
 
 uint32_t UART_DMA::getRxBytesLeft() { return rx_length - rx_i; };
 
 bool UART_DMA::startRX(const uint8_t *buf, uint32_t length, uint32_t timeout,
-                       UART_DMA_RxListener *rxl) {
+                       RxListener *rxl) {
   rx_length = length;
   rx_listener = rxl;
   rx_i = 0;

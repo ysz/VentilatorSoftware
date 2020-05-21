@@ -4,7 +4,7 @@
 #include "network_protocol.pb.h"
 #include "uart_dma.h"
 
-template <class Transport> class FramingRxFSM : public UART_DMA_RxListener {
+template <class Transport> class FramingRxFSM : public RxListener {
   enum State_t { STATE_LOST, STATE_WAIT_START, STATE_RX_FRAME };
 
   Transport &transport_;

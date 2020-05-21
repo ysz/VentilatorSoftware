@@ -13,7 +13,7 @@ class DummyTxListener : public UART_DMA_TxListener {
   void onTxError(){};
 };
 
-class DummyRxListener : public UART_DMA_RxListener {
+class DummyRxListener : public RxListener {
 public:
   void onRxComplete() {
     debugPrint("&");
