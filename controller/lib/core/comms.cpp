@@ -86,20 +86,20 @@ void Comms::process_rx(GuiStatus *gui_status) {
       // TODO raise, error, alarm
       return;
     }
-    if (is_crc_pass(buf, decoded_length)) {
-      pb_istream_t stream = pb_istream_from_buffer(buf, decoded_length - 4);
-      GuiStatus new_gui_status = GuiStatus_init_zero;
-      if (pb_decode(&stream, GuiStatus_fields, &new_gui_status)) {
-        *gui_status = new_gui_status;
-      } else {
-        // printf("! could not decode");
-        // TODO: Log an error.
-      }
-      last_rx = Hal.now();
-    } else {
+    if (!is_crc_pass(buf, decoded_length)) {
       // printf("! CRC mismatch\n");
       // TODO CRC mismatch; log an error
+      return;
     }
+    pb_istream_t stream = pb_istream_from_buffer(buf, decoded_length - 4);
+    GuiStatus new_gui_status = GuiStatus_init_zero;
+    if (!pb_decode(&stream, GuiStatus_fields, &new_gui_status)) {
+      // printf("! could not decode");
+      // TODO: Log an error.
+      return;
+    }
+    *gui_status = new_gui_status;
+    last_rx = Hal.now();
   }
 }
 
