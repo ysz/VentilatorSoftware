@@ -1,18 +1,19 @@
 #ifndef __FRAMING_RX_FSM
 #define __FRAMING_RX_FSM
 
-#include "network_protocol.pb.h"
 #include "uart_dma.h"
+#include <string.h>
 
-template <class RxBuffer> class FrameDetector : public RxListener {
+template <class RxBuffer, int FRAME_BUF_LEN>
+class FrameDetector : public RxListener {
   enum State_t { STATE_LOST, STATE_WAIT_START, STATE_RX_FRAME };
 
   RxBuffer &rx_buffer_;
   State_t state = STATE_LOST;
   uint32_t error_counter_ = 0;
   bool frame_available_ = false;
-  static constexpr uint32_t RX_BUF_LEN = (GuiStatus_size + 4) * 2 + 2;
-  uint8_t frame_buf_[RX_BUF_LEN];
+  // static constexpr uint32_t FRAME_BUF_LEN = (GuiStatus_size + 4) * 2 + 2;
+  uint8_t frame_buf_[FRAME_BUF_LEN];
   uint32_t frame_buf_length_ = 0;
 
 public:
@@ -29,12 +30,14 @@ private:
   void processReceivedData();
 };
 
-template <class RxBuffer> void FrameDetector<RxBuffer>::Begin() {
+template <class RxBuffer, int FRAME_BUF_LEN>
+void FrameDetector<RxBuffer, FRAME_BUF_LEN>::Begin() {
   state = STATE_LOST;
   rx_buffer_.Begin(this);
 }
 
-template <class RxBuffer> void FrameDetector<RxBuffer>::onRxComplete() {
+template <class RxBuffer, int FRAME_BUF_LEN>
+void FrameDetector<RxBuffer, FRAME_BUF_LEN>::onRxComplete() {
   // We should never reach the full read of rx buffer.
   // If we get here, this means, there are no marker
   // chars in the stream, so we are lost
@@ -43,7 +46,8 @@ template <class RxBuffer> void FrameDetector<RxBuffer>::onRxComplete() {
   rx_buffer_.RestartRX(this);
 }
 
-template <class RxBuffer> void FrameDetector<RxBuffer>::onCharacterMatch() {
+template <class RxBuffer, int FRAME_BUF_LEN>
+void FrameDetector<RxBuffer, FRAME_BUF_LEN>::onCharacterMatch() {
   switch (state) {
   case STATE_LOST:
     // if we have received something before this marker,
@@ -92,7 +96,8 @@ template <class RxBuffer> void FrameDetector<RxBuffer>::onCharacterMatch() {
   rx_buffer_.RestartRX(this);
 }
 
-template <class RxBuffer> void FrameDetector<RxBuffer>::onRxError(RxError_t e) {
+template <class RxBuffer, int FRAME_BUF_LEN>
+void FrameDetector<RxBuffer, FRAME_BUF_LEN>::onRxError(RxError_t e) {
   switch (state) {
   case STATE_LOST:
   case STATE_WAIT_START:
@@ -105,7 +110,8 @@ template <class RxBuffer> void FrameDetector<RxBuffer>::onRxError(RxError_t e) {
   error_counter_++;
 };
 
-template <class RxBuffer> void FrameDetector<RxBuffer>::processReceivedData() {
+template <class RxBuffer, int FRAME_BUF_LEN>
+void FrameDetector<RxBuffer, FRAME_BUF_LEN>::processReceivedData() {
   // we strip markers from the stream, but that does not influence the frame
   // decoder code
   frame_buf_length_ = rx_buffer_.ReceivedLength() - 1;
@@ -113,16 +119,19 @@ template <class RxBuffer> void FrameDetector<RxBuffer>::processReceivedData() {
   frame_available_ = true;
 }
 
-template <class RxBuffer> uint8_t *FrameDetector<RxBuffer>::get_frame_buf() {
+template <class RxBuffer, int FRAME_BUF_LEN>
+uint8_t *FrameDetector<RxBuffer, FRAME_BUF_LEN>::get_frame_buf() {
   frame_available_ = false;
   return frame_buf_;
 }
 
-template <class RxBuffer> uint32_t FrameDetector<RxBuffer>::get_frame_length() {
+template <class RxBuffer, int FRAME_BUF_LEN>
+uint32_t FrameDetector<RxBuffer, FRAME_BUF_LEN>::get_frame_length() {
   return frame_buf_length_;
 }
 
-template <class RxBuffer> bool FrameDetector<RxBuffer>::is_frame_available() {
+template <class RxBuffer, int FRAME_BUF_LEN>
+bool FrameDetector<RxBuffer, FRAME_BUF_LEN>::is_frame_available() {
   return frame_available_;
 }
 

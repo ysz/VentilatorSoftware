@@ -29,13 +29,15 @@ limitations under the License.
 // messages from the GUI.  The only way it communicates with other modules is
 // by modifying the gui_status pointer in comms_handler.
 
+static constexpr uint32_t RX_FRAME_LEN_MAX = (GuiStatus_size + 4) * 2 + 2;
+
 extern UART_DMA uart_dma;
 extern RxBufferUartDma rx_buffer;
-extern FrameDetector<RxBufferUartDma> frame_detector;
+extern FrameDetector<RxBufferUartDma, RX_FRAME_LEN_MAX> frame_detector;
 
 class Comms : public TxListener {
   UART_DMA &uart_dma_;
-  FrameDetector<RxBufferUartDma> &frame_detector_;
+  FrameDetector<RxBufferUartDma, RX_FRAME_LEN_MAX> &frame_detector_;
 
 public:
   Comms() : uart_dma_(uart_dma), frame_detector_(frame_detector){};
