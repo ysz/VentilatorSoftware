@@ -4,12 +4,14 @@
 
 #include "../common/generated_libs/network_protocol/network_protocol.pb.h"
 #include "../common/libs/checksum/checksum.h"
+#include "../common/libs/framing/frame_detector.h"
 #include "../common/libs/framing/framing.h"
 #include "../common/third_party/nanopb/pb_common.h"
 #include "../common/third_party/nanopb/pb_decode.h"
 #include "../common/third_party/nanopb/pb_encode.h"
 #include "chrono.h"
 #include "connected_device.h"
+#include "rx_buffer.h"
 
 // Connects to system serial port, does nanopb serialization/deserialization
 // of GuiStatus and ControllerStatus and provides methods to send/receive
@@ -106,6 +108,19 @@ public:
     return true;
   }
 
+  // Size of the rx buffer is set asuming a corner case where EVERY GuiStatus
+  // byte and CRC32 will be escaped + two marker chars; this is too big, but
+  // safe.
+  static constexpr uint32_t RX_FRAME_LEN_MAX =
+      (ControllerStatus_size + 4) * 2 + 2;
+
+  RxBuffer<RX_FRAME_LEN_MAX> rx_buffer(FRAMING_MARK);
+  FrameDetector<RxBuffer, RX_FRAME_LEN_MAX> frame_detector(rx_buffer);
+
+  static bool is_crc_pass(uint8_t *buf, uint32_t len) {
+    return soft_crc32(buf, len - 4) == extract_crc(buf, len);
+  }
+
   bool ReceiveControllerStatus(ControllerStatus *controller_status) override {
     if (!createPortMaybe()) {
       qFatal("Could not open serial port for reading %s",
@@ -114,30 +129,47 @@ public:
       return false;
     }
 
+    if (serialPort_->bytesAvailable()) {
+      QByteArray raw_data = serialPort_->readAll();
+      for (int i = 0; i < raw_data.size(); i++) {
+        rx_buffer.PutByte(raw_data.at(i));
+      }
+    }
+
     // wait for incomming data
-    if (!serialPort_->waitForReadyRead(INTER_FRAME_TIMEOUT_MS.count())) {
-      // TODO frame from CycleController is not on schedule, raise an alert
-      qCritical()
-          << "Timeout while waiting for a serial frame from Cycle Controller";
-      return false;
-    }
+    // if (!serialPort_->waitForReadyRead(INTER_FRAME_TIMEOUT_MS.count())) {
+    //   // TODO frame from CycleController is not on schedule, raise an alert
+    //   qCritical()
+    //       << "Timeout while waiting for a serial frame from Cycle
+    //       Controller";
+    //   return false;
+    // }
 
-    QByteArray responseData = serialPort_->readAll();
+    if (frame_detector.is_frame_available()) {
+      uint8_t *buf = frame_detector_.get_frame_buf();
+      uint32_t len = frame_detector_.get_frame_length();
+      uint32_t decoded_length = DecodeFrame(buf, len, buf, len);
+      if (0 == decoded_length) {
+        qCritical() << "Could not decode received data as a frame";
+        return false;
+        // TODO: Log an error. Raise an Alert?
+      }
 
-    // continue reading characters until we don't see
-    // any data for long enough to estimate end of packet silence
-    while (serialPort_->waitForReadyRead(INTER_FRAME_TIMEOUT_MS.count() / 5)) {
-      responseData += serialPort_->readAll();
-    }
+      if (!is_crc_pass(buf, len)) {
+        qCritical() << "CRC mismatch on received data frame";
+        return false;
+        // TODO: Log an error. Raise an Alert?
+      }
 
-    pb_istream_t stream = pb_istream_from_buffer(
-        (const uint8_t *)responseData.data(), responseData.length());
+      pb_istream_t stream = pb_istream_from_buffer(
+          (const uint8_t *)responseData.data(), responseData.length());
 
-    if (!pb_decode(&stream, ControllerStatus_fields, controller_status)) {
-      qCritical()
-          << "Could not de-serialize received data as Controller Status";
-      // TODO: Log an error. Raise an Alert?
-      return false;
+      if (!pb_decode(&stream, ControllerStatus_fields, controller_status)) {
+        qCritical()
+            << "Could not de-serialize received data as Controller Status";
+        // TODO: Log an error. Raise an Alert?
+        return false;
+      }
     }
 
     return true;

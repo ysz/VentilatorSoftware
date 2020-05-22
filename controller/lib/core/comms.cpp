@@ -72,7 +72,7 @@ void Comms::process_tx(const ControllerStatus &controller_status) {
   // of time.
 }
 
-inline bool is_crc_pass(uint8_t *buf, uint32_t len) {
+static bool is_crc_pass(uint8_t *buf, uint32_t len) {
   return Hal.crc32(buf, len - 4) == extract_crc(buf, len);
 }
 
@@ -82,6 +82,10 @@ void Comms::process_rx(GuiStatus *gui_status) {
     uint32_t len = frame_detector_.get_frame_length();
 
     uint32_t decoded_length = DecodeFrame(buf, len, buf, len);
+    if (0 == decoded_length) {
+      // TODO raise, error, alarm
+      return;
+    }
     if (is_crc_pass(buf, decoded_length)) {
       pb_istream_t stream = pb_istream_from_buffer(buf, decoded_length - 4);
       GuiStatus new_gui_status = GuiStatus_init_zero;
