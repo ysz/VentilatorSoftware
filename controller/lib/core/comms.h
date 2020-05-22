@@ -18,10 +18,10 @@ limitations under the License.
 
 #include <stdint.h>
 
-#include "framing_rx_fsm.h"
+#include "frame_detector.h"
 #include "hal.h"
-#include "hal_transport.h"
 #include "network_protocol.pb.h"
+#include "rx_buf_uart_dma.h"
 #include "uart_dma.h"
 #include "units.h"
 
@@ -30,15 +30,15 @@ limitations under the License.
 // by modifying the gui_status pointer in comms_handler.
 
 extern UART_DMA uart_dma;
-extern HalTransport hal_transport;
-extern FramingRxFSM<HalTransport> rx_fsm;
+extern RxBufferUartDma rx_buffer;
+extern FrameDetector<RxBufferUartDma> frame_detector;
 
 class Comms : public TxListener {
   UART_DMA &uart_dma_;
-  FramingRxFSM<HalTransport> &rx_fsm_;
+  FrameDetector<RxBufferUartDma> &frame_detector_;
 
 public:
-  Comms() : uart_dma_(uart_dma), rx_fsm_(rx_fsm){};
+  Comms() : uart_dma_(uart_dma), frame_detector_(frame_detector){};
   void init();
   void onTxComplete() override;
   void onTxError() override;

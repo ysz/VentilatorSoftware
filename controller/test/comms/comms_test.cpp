@@ -5,8 +5,8 @@
 #include <pb_encode.h>
 
 #include "checksum.h"
+#include "frame_detector.h"
 #include "framing.h"
-#include "framing_rx_fsm.h"
 #include "hal.h"
 #include "network_protocol.pb.h"
 #include "gtest/gtest.h"
@@ -98,14 +98,14 @@ bool UART_DMA::startRX(const uint8_t *buf, uint32_t length, uint32_t timeout,
   return true;
 };
 
-void HalTransport::test_PutByte(uint8_t b) {
+void RxBufferUartDma::test_PutByte(uint8_t b) {
   // printf("[%d] ", b);
   rx_buf_[rx_i++] = b;
 }
 
 void fake_rx(uint32_t encoded_length) {
   for (uint32_t i = 0; i < encoded_length; i++) {
-    hal_transport.test_PutByte(fake_frame[i]);
+    rx_buffer.test_PutByte(fake_frame[i]);
     if (FRAMING_MARK == fake_frame[i]) {
       rx_listener->onCharacterMatch();
     }

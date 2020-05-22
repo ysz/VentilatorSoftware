@@ -2,7 +2,7 @@
 #include "network_protocol.pb.h"
 #include "uart_dma.h"
 
-class HalTransport {
+class RxBufferUartDma {
   UART_DMA &uart_dma;
   // Size of the buffer is set asuming a corner case where EVERY GuiStatus
   // byte and CRC32 will be escaped + two marker chars; this is too big, but
@@ -13,11 +13,11 @@ class HalTransport {
   static constexpr uint32_t RX_TIMEOUT = 115200 * 10;
 
 public:
-  HalTransport(UART_DMA &uart_dma) : uart_dma(uart_dma){};
+  RxBufferUartDma(UART_DMA &uart_dma) : uart_dma(uart_dma){};
   void Begin(RxListener *);
   void RestartRX(RxListener *);
   uint32_t ReceivedLength();
-  uint8_t *get_rx_buf() { return rx_buf_; }
+  uint8_t *get() { return rx_buf_; }
 #ifdef TEST_MODE
   void test_PutByte(uint8_t b);
 #endif

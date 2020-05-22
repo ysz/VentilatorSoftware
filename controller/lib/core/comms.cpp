@@ -13,8 +13,8 @@
 
 extern UART_DMA uart_dma;
 
-HalTransport hal_transport(uart_dma);
-FramingRxFSM<HalTransport> rx_fsm(hal_transport);
+RxBufferUartDma rx_buffer(uart_dma);
+FrameDetector<RxBufferUartDma> frame_detector(rx_buffer);
 
 // Note that the initial value of last_tx has to be invalid; changing it to 0
 // wouldn't work.  We immediately transmit on boot, and after
@@ -76,9 +76,9 @@ inline bool is_crc_pass(uint8_t *buf, uint32_t len) {
 }
 
 void Comms::process_rx(GuiStatus *gui_status) {
-  if (rx_fsm_.is_frame_available()) {
-    uint8_t *buf = rx_fsm_.get_received_buf();
-    uint32_t len = rx_fsm_.get_received_length();
+  if (frame_detector_.is_frame_available()) {
+    uint8_t *buf = frame_detector_.get_frame_buf();
+    uint32_t len = frame_detector_.get_frame_length();
 
     uint32_t decoded_length = DecodeFrame(buf, len, buf, len);
     if (is_crc_pass(buf, decoded_length)) {
@@ -98,7 +98,7 @@ void Comms::process_rx(GuiStatus *gui_status) {
   }
 }
 
-void Comms::init() { rx_fsm_.Begin(); }
+void Comms::init() { frame_detector_.Begin(); }
 
 void Comms::handler(const ControllerStatus &controller_status,
                     GuiStatus *gui_status) {

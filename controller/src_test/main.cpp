@@ -8,7 +8,7 @@ char r[20];
 
 extern UART_DMA dmaUART;
 
-class DummyTxListener : public UART_DMA_TxListener {
+class DummyTxListener : public TxListener {
   void onTxComplete() { debugPrint("$"); }
   void onTxError(){};
 };
@@ -29,7 +29,7 @@ public:
   }
 };
 
-// FramingRxFSM listener = FramingRxFSM();
+// FrameDetector listener = FrameDetector();
 DummyRxListener rxlistener;
 DummyTxListener txlistener;
 
@@ -47,7 +47,7 @@ int main() {
   char s[] = "ping ping ping ping ping ping ping ping ping ping ping ping\n";
   bool dmaStarted = false;
 
-  dmaStarted = dmaUART.startTX(s, strlen(s));
+  dmaStarted = dmaUART.startTX((uint8_t *)s, strlen(s), &txlistener);
   if (dmaStarted) {
     debugPrint("!");
   }
