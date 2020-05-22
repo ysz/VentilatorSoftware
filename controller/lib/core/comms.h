@@ -29,13 +29,12 @@ limitations under the License.
 // messages from the GUI.  The only way it communicates with other modules is
 // by modifying the gui_status pointer in comms_handler.
 
+// Size of the rx buffer is set asuming a corner case where EVERY GuiStatus
+// byte and CRC32 will be escaped + two marker chars; this is too big, but
+// safe.
 static constexpr uint32_t RX_FRAME_LEN_MAX = (GuiStatus_size + 4) * 2 + 2;
 
 extern UART_DMA uart_dma;
-// Size of the buffer is set asuming a corner case where EVERY GuiStatus
-// byte and CRC32 will be escaped + two marker chars; this is too big, but
-// safe.
-// = (GuiStatus_size + 4) * 2 + 2;
 
 extern RxBufferUartDma<RX_FRAME_LEN_MAX> rx_buffer;
 extern FrameDetector<RxBufferUartDma<RX_FRAME_LEN_MAX>, RX_FRAME_LEN_MAX>

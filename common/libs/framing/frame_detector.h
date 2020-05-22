@@ -1,7 +1,7 @@
 #ifndef __FRAMING_RX_FSM
 #define __FRAMING_RX_FSM
 
-#include "uart_dma.h"
+#include "serial_listeners.h"
 #include <string.h>
 
 template <class RxBuffer, int FRAME_BUF_LEN>

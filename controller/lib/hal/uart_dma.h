@@ -1,34 +1,7 @@
 #ifndef __UART_DMA
 #define __UART_DMA
 #include "hal_stm32_regs.h"
-
-enum RxError_t {
-  RX_ERROR_UNKNOWN,
-  RX_ERROR_OVR,
-  RX_ERROR_FRAMING,
-  RX_ERROR_TIMEOUT,
-  RX_ERROR_DMA
-};
-
-// An interface that gets called back by the driver on events.
-// NOTE: all callbacks are called from interrupt context!
-class RxListener {
-public:
-  // Called on DMA RX complete
-  virtual void onRxComplete() = 0;
-  // Called on specified character reception
-  virtual void onCharacterMatch() = 0;
-  // Called on RX errors
-  virtual void onRxError(RxError_t) = 0;
-};
-
-class TxListener {
-public:
-  // Called on DMA TX complete
-  virtual void onTxComplete() = 0;
-  // Called on TX errors
-  virtual void onTxError() = 0;
-};
+#include "serial_listeners.h"
 
 class DMACtrl {
   DMA_Regs *const dma;
