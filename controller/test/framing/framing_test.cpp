@@ -15,10 +15,10 @@ void randomConversion() {
     source_buf[i] = static_cast<uint8_t>(rand() % 255);
   }
 
-  uint32_t frameLength = EncodeFrame(source_buf, SLENGTH, dest_buf, DLENGTH);
+  uint32_t frameLength = EscapeFrame(source_buf, SLENGTH, dest_buf, DLENGTH);
   ASSERT_GT(frameLength, SLENGTH);
   uint32_t decodedLength =
-      DecodeFrame(dest_buf, frameLength, decoded_buf, SLENGTH);
+      UnescapeFrame(dest_buf, frameLength, decoded_buf, SLENGTH);
   ASSERT_EQ(decodedLength, SLENGTH);
   int n = memcmp(source_buf, decoded_buf, SLENGTH);
   ASSERT_EQ(n, 0);
@@ -35,16 +35,16 @@ TEST(FramingTests, EncodingDestTooSmall) {
   uint8_t dest_buf[20];
 
   uint32_t frameLength =
-      EncodeFrame(source_buf, sizeof(source_buf), dest_buf, 5);
+      EscapeFrame(source_buf, sizeof(source_buf), dest_buf, 5);
   ASSERT_EQ(frameLength, (uint32_t)0);
-  frameLength = EncodeFrame(source_buf, sizeof(source_buf), dest_buf, 6);
+  frameLength = EscapeFrame(source_buf, sizeof(source_buf), dest_buf, 6);
   ASSERT_GT(frameLength, (uint32_t)0);
 
   uint8_t source_buf2[] = {0, FRAMING_ESC, 1, FRAMING_MARK, 2, 3};
 
-  frameLength = EncodeFrame(source_buf2, sizeof(source_buf2), dest_buf, 7);
+  frameLength = EscapeFrame(source_buf2, sizeof(source_buf2), dest_buf, 7);
   ASSERT_EQ(frameLength, (uint32_t)0);
-  frameLength = EncodeFrame(source_buf2, sizeof(source_buf2), dest_buf, 10);
+  frameLength = EscapeFrame(source_buf2, sizeof(source_buf2), dest_buf, 10);
   ASSERT_GT(frameLength, (uint32_t)0);
 }
 
@@ -53,8 +53,8 @@ TEST(FramingTests, DecodingDestTooSmall) {
   uint8_t dest_buf[10];
 
   uint32_t frameLength =
-      DecodeFrame(source_buf, sizeof(source_buf), dest_buf, 3);
+      UnescapeFrame(source_buf, sizeof(source_buf), dest_buf, 3);
   ASSERT_EQ(frameLength, (uint32_t)0);
-  frameLength = DecodeFrame(source_buf, sizeof(source_buf), dest_buf, 4);
+  frameLength = UnescapeFrame(source_buf, sizeof(source_buf), dest_buf, 4);
   ASSERT_GT(frameLength, (uint32_t)0);
 }

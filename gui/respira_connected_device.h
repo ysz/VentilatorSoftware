@@ -90,7 +90,7 @@ public:
       return false;
     }
     uint8_t tx_buffer[(GuiStatus_size + 4) * 2 + 2];
-    uint32_t encoded_length = EncodeFrame(pb_buffer, stream.bytes_written + 4,
+    uint32_t encoded_length = EscapeFrame(pb_buffer, stream.bytes_written + 4,
                                           tx_buffer, sizeof(tx_buffer));
     if (0 == encoded_length) {
       qCritical() << "Could not frame serialized GuiStatus";
@@ -148,7 +148,7 @@ public:
     if (frame_detector.is_frame_available()) {
       uint8_t *buf = frame_detector_.get_frame_buf();
       uint32_t len = frame_detector_.get_frame_length();
-      uint32_t decoded_length = DecodeFrame(buf, len, buf, len);
+      uint32_t decoded_length = UnescapeFrame(buf, len, buf, len);
       if (0 == decoded_length) {
         qCritical() << "Could not decode received data as a frame";
         return false;

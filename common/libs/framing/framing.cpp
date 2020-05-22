@@ -6,7 +6,7 @@ inline bool shouldEscape(uint8_t b) {
   return FRAMING_MARK == b || FRAMING_ESC == b;
 }
 
-uint32_t EncodeFrame(uint8_t *source, uint32_t sourceLength, uint8_t *dest,
+uint32_t EscapeFrame(uint8_t *source, uint32_t sourceLength, uint8_t *dest,
                      uint32_t destLength) {
   uint32_t i = 0;
   dest[i++] = FRAMING_MARK;
@@ -25,8 +25,8 @@ uint32_t EncodeFrame(uint8_t *source, uint32_t sourceLength, uint8_t *dest,
   return i;
 }
 
-uint32_t DecodeFrame(uint8_t *source, uint32_t sourceLength, uint8_t *dest,
-                     uint32_t destLength) {
+uint32_t UnescapeFrame(uint8_t *source, uint32_t sourceLength, uint8_t *dest,
+                       uint32_t destLength) {
   uint32_t i = 0;
   bool isEsc = false;
   for (uint32_t j = 0; j < sourceLength; j++) {

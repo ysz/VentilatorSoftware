@@ -50,7 +50,7 @@ uint32_t Comms::CreateFrame(const ControllerStatus &controller_status) {
     // TODO log an error, output buffer too small
   }
 
-  return EncodeFrame(pb_buffer, pb_data_len + 4, tx_buffer, TX_BUF_LEN);
+  return EscapeFrame(pb_buffer, pb_data_len + 4, tx_buffer, TX_BUF_LEN);
 }
 
 void Comms::process_tx(const ControllerStatus &controller_status) {
@@ -81,7 +81,7 @@ void Comms::process_rx(GuiStatus *gui_status) {
     uint8_t *buf = frame_detector_.get_frame_buf();
     uint32_t len = frame_detector_.get_frame_length();
 
-    uint32_t decoded_length = DecodeFrame(buf, len, buf, len);
+    uint32_t decoded_length = UnescapeFrame(buf, len, buf, len);
     if (0 == decoded_length) {
       // TODO raise, error, alarm
       return;

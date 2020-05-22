@@ -66,8 +66,8 @@ TEST(CommTests, SendControllerStatus) {
     comms.handler(s, &gui_status_ignored);
   }
   uint8_t decoded_buf[ControllerStatus_size + 4];
-  uint32_t decoded_length =
-      DecodeFrame(tx_buffer, tx_length, decoded_buf, ControllerStatus_size + 4);
+  uint32_t decoded_length = UnescapeFrame(tx_buffer, tx_length, decoded_buf,
+                                          ControllerStatus_size + 4);
 
   ASSERT_GT(decoded_length, static_cast<uint32_t>(0));
 
@@ -140,7 +140,7 @@ TEST(CommTests, CommandRx) {
   bool crc_appened = append_crc(pb_buf, len, GuiStatus_size + 4, crc32);
   EXPECT_TRUE(crc_appened);
   uint32_t encoded_length =
-      EncodeFrame(pb_buf, len + 4, fake_frame, sizeof(fake_frame));
+      EscapeFrame(pb_buf, len + 4, fake_frame, sizeof(fake_frame));
   EXPECT_GT(encoded_length, (uint32_t)0);
 
   ControllerStatus controller_status_ignored = ControllerStatus_init_zero;
