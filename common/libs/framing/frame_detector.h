@@ -12,7 +12,6 @@ class FrameDetector : public RxListener {
   State_t state = STATE_LOST;
   uint32_t error_counter_ = 0;
   bool frame_available_ = false;
-  // static constexpr uint32_t FRAME_BUF_LEN = (GuiStatus_size + 4) * 2 + 2;
   uint8_t frame_buf_[FRAME_BUF_LEN];
   uint32_t frame_buf_length_ = 0;
 

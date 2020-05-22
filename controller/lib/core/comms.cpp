@@ -13,8 +13,9 @@
 
 extern UART_DMA uart_dma;
 
-RxBufferUartDma rx_buffer(uart_dma);
-FrameDetector<RxBufferUartDma, RX_FRAME_LEN_MAX> frame_detector(rx_buffer);
+RxBufferUartDma<RX_FRAME_LEN_MAX> rx_buffer(uart_dma);
+FrameDetector<RxBufferUartDma<RX_FRAME_LEN_MAX>, RX_FRAME_LEN_MAX>
+    frame_detector(rx_buffer);
 
 // Note that the initial value of last_tx has to be invalid; changing it to 0
 // wouldn't work.  We immediately transmit on boot, and after

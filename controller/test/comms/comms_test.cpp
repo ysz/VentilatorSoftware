@@ -98,11 +98,6 @@ bool UART_DMA::startRX(const uint8_t *buf, uint32_t length, uint32_t timeout,
   return true;
 };
 
-void RxBufferUartDma::test_PutByte(uint8_t b) {
-  // printf("[%d] ", b);
-  rx_buf_[rx_i++] = b;
-}
-
 void fake_rx(uint32_t encoded_length) {
   for (uint32_t i = 0; i < encoded_length; i++) {
     rx_buffer.test_PutByte(fake_frame[i]);

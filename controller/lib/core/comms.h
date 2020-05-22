@@ -32,12 +32,19 @@ limitations under the License.
 static constexpr uint32_t RX_FRAME_LEN_MAX = (GuiStatus_size + 4) * 2 + 2;
 
 extern UART_DMA uart_dma;
-extern RxBufferUartDma rx_buffer;
-extern FrameDetector<RxBufferUartDma, RX_FRAME_LEN_MAX> frame_detector;
+// Size of the buffer is set asuming a corner case where EVERY GuiStatus
+// byte and CRC32 will be escaped + two marker chars; this is too big, but
+// safe.
+// = (GuiStatus_size + 4) * 2 + 2;
+
+extern RxBufferUartDma<RX_FRAME_LEN_MAX> rx_buffer;
+extern FrameDetector<RxBufferUartDma<RX_FRAME_LEN_MAX>, RX_FRAME_LEN_MAX>
+    frame_detector;
 
 class Comms : public TxListener {
   UART_DMA &uart_dma_;
-  FrameDetector<RxBufferUartDma, RX_FRAME_LEN_MAX> &frame_detector_;
+  FrameDetector<RxBufferUartDma<RX_FRAME_LEN_MAX>, RX_FRAME_LEN_MAX>
+      &frame_detector_;
 
 public:
   Comms() : uart_dma_(uart_dma), frame_detector_(frame_detector){};
