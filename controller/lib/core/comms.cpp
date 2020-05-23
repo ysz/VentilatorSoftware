@@ -9,24 +9,12 @@
 #include <pb_decode.h>
 #include <pb_encode.h>
 
-// Our outgoing (serialized) ControllerStatus proto is stored in tx_buffer.  We
-// then transmit it a few bytes at a time, as the serial port becomes
-// available.
-//
-// This isn't a circular buffer; the beginning of the proto is always at the
-// beginning of the buffer.
-static uint8_t tx_buffer[ControllerStatus_size];
-// Index of the next byte to transmit.
-static uint16_t tx_idx = 0;
-// Number of bytes remaining to transmit. tx_idx + tx_bytes_remaining equals
-// the size of the serialized ControllerStatus proto.
-static uint16_t tx_bytes_remaining = 0;
 
 // Time when we started sending the last ControllerStatus.
 static std::optional<Time> last_tx;
 
-// We send a ControllerStatus every TX_INTERVAL_MS.
-
+// We send a ControllerStatus once every TX_INTERVAL.
+//
 // In Alpha build we use synchronized communication initiated by GUI cycle
 // controller. Since both ControllerStatus and GuiStatus take roughly 300+
 // bytes, we need at least 1/115200.*10*300=26ms to transmit.
@@ -36,6 +24,21 @@ void comms_init() {}
 
 // TODO run this via DMA to free up resources for control loops
 static void process_tx(const ControllerStatus &controller_status) {
+  // Our outgoing (serialized) ControllerStatus proto is stored in tx_buffer. We
+  // then transmit it a few bytes at a time, as the serial port becomes
+  // available.
+  //
+  // This isn't a circular buffer; the beginning of the proto is always at the
+  // beginning of the buffer.
+  static uint8_t tx_buffer[ControllerStatus_size];
+  // Index of the next byte to transmit.
+  static uint16_t tx_idx = 0;
+  // Number of bytes remaining to transmit. tx_idx + tx_bytes_remaining equals
+  // the size of the serialized ControllerStatus proto.
+  static uint16_t tx_bytes_remaining = 0;
+
+  static Framer framer;
+
   auto bytes_avail = Hal.serialBytesAvailableForWrite();
   if (bytes_avail == 0) {
     return;
@@ -48,9 +51,6 @@ static void process_tx(const ControllerStatus &controller_status) {
   if (tx_bytes_remaining == 0 &&
       (last_tx == std::nullopt || Hal.now() - *last_tx > TX_INTERVAL)) {
     // Serialize current status into output buffer.
-    //
-    // TODO: Frame the message bytes.
-    // TODO: Add a checksum to the message.
     pb_ostream_t stream = pb_ostream_from_buffer(tx_buffer, sizeof(tx_buffer));
     if (!pb_encode(&stream, ControllerStatus_fields, &controller_status)) {
       // TODO: Serialization failure; log an error or raise an alert.
@@ -65,7 +65,18 @@ static void process_tx(const ControllerStatus &controller_status) {
   // of time.
 
   // Send bytes over the wire if any are in our buffer.
-  if (tx_bytes_remaining > 0) {
+  while (Hal.serialBytesAvailableForWrite() >= 1 && tx_bytes_remaining > 0 &&
+         !framer.Eof()) {
+    std::optional<uint8_t> b = framer.NextByte();
+    if (b != std::nullopt) {
+      Hal.serialWrite(reinterpret_cast<char *>(&b), 1);
+    }
+    if (b == std::nullopt) {
+      framer.ProcessByte(tx_buffer + tx_idx);
+      tx_idx++;
+      tx_bytes_remaining--;
+    }
+
     // TODO(jlebar): Change serialWrite to take a uint8* instead of a char*, so
     // it matches nanopb.
     uint16_t bytes_written =
@@ -80,23 +91,20 @@ static void process_tx(const ControllerStatus &controller_status) {
 }
 
 static void process_rx(GuiStatus *gui_status) {
-  static FramedBuffer<GuiStatus_size> buf;
+  static FramedInputBuffer<GuiStatus_size> buf;
 
-  while (Hal.serialBytesAvailableForRead() > 0) {
+  while (true) {
     char b;
     uint16_t bytes_read = Hal.serialRead(&b, 1);
-    if (bytes_read == 1) {
-      if (!buf.Consume(b)) {
-        break;
-      }
+    if (bytes_read == 0 || !buf.Consume(b)) {
+      break;
     }
   }
 
   if (buf.Error()) {
     // Reset the buffer.
-    //
     // TODO: Log an error.
-    buf = FramedBuffer<GuiStatus_size>();
+    buf = FramedInputBuffer<GuiStatus_size>();
   }
 
   if (buf.Eof()) {
@@ -109,7 +117,7 @@ static void process_rx(GuiStatus *gui_status) {
     }
 
     // Reset the buffer.
-    buf = FramedBuffer<GuiStatus_size>();
+    buf = FramedInputBuffer<GuiStatus_size>();
   }
 }
 
