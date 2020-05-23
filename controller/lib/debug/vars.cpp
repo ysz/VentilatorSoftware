@@ -21,17 +21,6 @@ limitations under the License.
 DebugVar *DebugVar::varList[100];
 int DebugVar::varCount = 0;
 
-// Creates a generic debug variable.  This can be used for
-// variables that don't fit into the normal categories like
-// int or float.
-DebugVar::DebugVar(const char *nm, const char *h, const char *f) {
-  name = nm;
-  fmt = f;
-  help = h;
-  type = VarType::UNKNOWN;
-  RegisterVar();
-}
-
 // Creates a debug variable that modifies an int
 DebugVar::DebugVar(const char *nm, int32_t *data, const char *h,
                    const char *f) {
