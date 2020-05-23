@@ -2,7 +2,7 @@
 
 #include <stdint.h>
 
-inline bool shouldEscape(uint8_t b) {
+static bool shouldEscape(uint8_t b) {
   return FRAMING_MARK == b || FRAMING_ESC == b;
 }
 
