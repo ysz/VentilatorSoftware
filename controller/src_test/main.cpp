@@ -6,11 +6,9 @@
 
 char r[20];
 
-extern UART_DMA dmaUART;
-
 class DummyTxListener : public TxListener {
   void onTxComplete() { debugPrint("$"); }
-  void onTxError(){};
+  void onTxError() { debugPrint("E"); };
 };
 
 class DummyRxListener : public RxListener {
@@ -34,10 +32,11 @@ DummyRxListener rxlistener;
 DummyTxListener txlistener;
 
 DMACtrl dmaController(DMA1_BASE);
+
+#include "framing.h"
 constexpr uint8_t txCh = 1;
 constexpr uint8_t rxCh = 2;
-UART_DMA dmaUART(UART3_BASE, DMA1_BASE, txCh, rxCh, rxlistener, txlistener,
-                 '.');
+UART_DMA uart_dma(UART3_BASE, DMA1_BASE, txCh, rxCh, '.');
 
 int main() {
   Hal.init();
@@ -47,14 +46,14 @@ int main() {
   char s[] = "ping ping ping ping ping ping ping ping ping ping ping ping\n";
   bool dmaStarted = false;
 
-  dmaStarted = dmaUART.startTX((uint8_t *)s, strlen(s), &txlistener);
+  dmaStarted = uart_dma.startTX((uint8_t *)s, strlen(s), &txlistener);
   if (dmaStarted) {
     debugPrint("!");
   }
 
-  dmaUART.charMatchEnable();
+  uart_dma.charMatchEnable();
 
-  dmaStarted = dmaUART.startRX(r, 10, 115200 * 2);
+  dmaStarted = uart_dma.startRX((uint8_t *)r, 10, 115200 * 2, &rxlistener);
   if (dmaStarted) {
     debugPrint("!");
   }
