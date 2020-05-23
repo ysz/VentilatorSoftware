@@ -35,6 +35,15 @@ constexpr DurationMs INTER_FRAME_TIMEOUT_MS = DurationMs(42);
 // will usually swallow it immeadetely, but just in case we set a timeout.
 constexpr DurationMs WRITE_TIMEOUT_MS = DurationMs(15);
 
+// Size of the rx buffer is set asuming a corner case where EVERY GuiStatus
+// byte and CRC32 will be escaped + two marker chars; this is too big, but
+// safe.
+static constexpr int RX_FRAME_LEN_MAX = (ControllerStatus_size + 4) * 2 + 2;
+
+static QRxBuffer<RX_FRAME_LEN_MAX> rx_buffer_(FRAMING_MARK);
+static FrameDetector<QRxBuffer<RX_FRAME_LEN_MAX>, RX_FRAME_LEN_MAX>
+    frame_detector_(rx_buffer_);
+
 class RespiraConnectedDevice : public ConnectedDevice {
 public:
   RespiraConnectedDevice(QString portName) : serialPortName_(portName) {}
@@ -65,6 +74,9 @@ public:
     return true;
   }
 
+  static constexpr auto EncodeGuiStatusFrame =
+      EncodeFrame<GuiStatus, GuiStatus_fields, GuiStatus_size, &soft_crc32>;
+
   bool SendGuiStatus(const GuiStatus &gui_status) override {
     if (!createPortMaybe()) {
       // TODO log an error, Serial port could not be opened, raise an Alert
@@ -73,25 +85,9 @@ public:
       return false;
     }
 
-    uint8_t pb_buffer[GuiStatus_size + 4];
-
-    pb_ostream_t stream =
-        pb_ostream_from_buffer(pb_buffer, sizeof(pb_buffer) - 4);
-    if (!pb_encode(&stream, GuiStatus_fields, &gui_status)) {
-      // TODO: Serialization failure; log an error and/or raise an alert.
-      qCritical() << "Could not serialize GuiStatus";
-      return false;
-    }
-
-    uint32_t crc32 = soft_crc32(pb_buffer, stream.bytes_written);
-    if (!append_crc(pb_buffer, stream.bytes_written, sizeof(pb_buffer),
-                    crc32)) {
-      qCritical() << "Could not append CRC to serialized GuiStatus";
-      return false;
-    }
     uint8_t tx_buffer[(GuiStatus_size + 4) * 2 + 2];
-    uint32_t encoded_length = EscapeFrame(pb_buffer, stream.bytes_written + 4,
-                                          tx_buffer, sizeof(tx_buffer));
+    uint32_t encoded_length =
+        EncodeGuiStatusFrame(gui_status, tx_buffer, sizeof(tx_buffer));
     if (0 == encoded_length) {
       qCritical() << "Could not frame serialized GuiStatus";
       return false;
@@ -108,18 +104,8 @@ public:
     return true;
   }
 
-  // Size of the rx buffer is set asuming a corner case where EVERY GuiStatus
-  // byte and CRC32 will be escaped + two marker chars; this is too big, but
-  // safe.
-  static constexpr uint32_t RX_FRAME_LEN_MAX =
-      (ControllerStatus_size + 4) * 2 + 2;
-
-  RxBuffer<RX_FRAME_LEN_MAX> rx_buffer(FRAMING_MARK);
-  FrameDetector<RxBuffer, RX_FRAME_LEN_MAX> frame_detector(rx_buffer);
-
-  static bool is_crc_pass(uint8_t *buf, uint32_t len) {
-    return soft_crc32(buf, len - 4) == extract_crc(buf, len);
-  }
+  static constexpr auto DecodeControllerStatusFrame =
+      DecodeFrame<ControllerStatus, ControllerStatus_fields, &soft_crc32>;
 
   bool ReceiveControllerStatus(ControllerStatus *controller_status) override {
     if (!createPortMaybe()) {
@@ -132,7 +118,7 @@ public:
     if (serialPort_->bytesAvailable()) {
       QByteArray raw_data = serialPort_->readAll();
       for (int i = 0; i < raw_data.size(); i++) {
-        rx_buffer.PutByte(raw_data.at(i));
+        rx_buffer_.PutByte(raw_data.at(i));
       }
     }
 
@@ -145,30 +131,18 @@ public:
     //   return false;
     // }
 
-    if (frame_detector.is_frame_available()) {
+    if (frame_detector_.is_frame_available()) {
       uint8_t *buf = frame_detector_.get_frame_buf();
       uint32_t len = frame_detector_.get_frame_length();
-      uint32_t decoded_length = UnescapeFrame(buf, len, buf, len);
-      if (0 == decoded_length) {
-        qCritical() << "Could not decode received data as a frame";
+
+      DecodeResult result =
+          DecodeControllerStatusFrame(buf, len, controller_status);
+
+      if (DecodeResult::SUCCESS != result) {
+        qCritical() << "Could not decode received data as a frame, error code: "
+                    << result;
         return false;
         // TODO: Log an error. Raise an Alert?
-      }
-
-      if (!is_crc_pass(buf, len)) {
-        qCritical() << "CRC mismatch on received data frame";
-        return false;
-        // TODO: Log an error. Raise an Alert?
-      }
-
-      pb_istream_t stream = pb_istream_from_buffer(
-          (const uint8_t *)responseData.data(), responseData.length());
-
-      if (!pb_decode(&stream, ControllerStatus_fields, controller_status)) {
-        qCritical()
-            << "Could not de-serialize received data as Controller Status";
-        // TODO: Log an error. Raise an Alert?
-        return false;
       }
     }
 

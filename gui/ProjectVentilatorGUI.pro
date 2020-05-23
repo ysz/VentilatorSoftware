@@ -18,6 +18,9 @@ HEADERS += $$files("*.h") \
     ../common/third_party/nanopb/pb_encode.h \
 HEADERS += $$files("$$PWD/../common/libs/**/*.h")
 INCLUDEPATH += $$PWD/../common/third_party/nanopb
+INCLUDEPATH += $$PWD/../common/libs/checksum
+INCLUDEPATH += $$PWD/../common/generated_libs/network_protocol
+INCLUDEPATH += $$PWD/../common/libs/framing
 RESOURCES += qml.qrc images/Logo.png
 DISTFILES += images/Logo.png
 TRANSLATIONS += ProjectVentilatorGUI_es_GT.ts

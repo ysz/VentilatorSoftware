@@ -3,7 +3,7 @@
 #include "framing.h"
 #include "serial_listeners.h"
 
-template <int RX_BYTES_MAX> class RxBuffer {
+template <int RX_BYTES_MAX> class QRxBuffer {
   uint8_t rx_buf_[RX_BYTES_MAX];
   uint32_t rx_i_ = 0;
   RxListener *rx_listener;
@@ -11,10 +11,10 @@ template <int RX_BYTES_MAX> class RxBuffer {
   static constexpr uint32_t RX_TIMEOUT_ = 115200 * 10;
 
 public:
-  RxBuffer(uint8_t match_char) : match_char_(match_char){};
+  explicit QRxBuffer(uint8_t match_char) : match_char_(match_char){};
   void Begin(RxListener *listener) { RestartRX(); };
-  void RestartRX(RxListener *) {
-    rx_i = 0;
+  void RestartRX(RxListener *listener) {
+    rx_i_ = 0;
     rx_listener = listener;
   }
   uint32_t ReceivedLength() { return RX_BYTES_MAX - rx_i_; };
@@ -23,13 +23,13 @@ public:
     if (rx_i_ < RX_BYTES_MAX) {
       rx_buf_[rx_i_++] = b;
       if (FRAMING_MARK == b) {
-        rx_listener->onCharMatch();
+        rx_listener->onCharacterMatch();
       }
     }
     if (rx_i_ >= RX_BYTES_MAX) {
       rx_listener->onRxComplete();
     }
-  };
+  }
 };
 
 #endif
