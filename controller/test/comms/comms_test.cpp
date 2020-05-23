@@ -68,7 +68,7 @@ TEST(CommTests, SendControllerStatus) {
   uint8_t decoded_buf[ControllerStatus_size + 4];
   uint32_t decoded_length = UnescapeFrame(tx_buffer, tx_length, decoded_buf,
                                           ControllerStatus_size + 4);
-
+  ASSERT_TRUE(is_crc_pass<&soft_crc32>(decoded_buf, decoded_length));
   ASSERT_GT(decoded_length, static_cast<uint32_t>(0));
 
   pb_istream_t stream = pb_istream_from_buffer(

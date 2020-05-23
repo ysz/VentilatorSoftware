@@ -23,7 +23,7 @@ DecodeResult DecodeFrame(uint8_t *buf, uint32_t len, PbType *pb_object) {
   if (0 == decoded_length) {
     return DecodeResult::ERROR_FRAMING;
   }
-  if (!is_crc_pass<crc_func>(buf, len)) {
+  if (!is_crc_pass<crc_func>(buf, decoded_length)) {
     return DecodeResult::ERROR_CRC;
   }
   pb_istream_t stream = pb_istream_from_buffer(buf, decoded_length - 4);
