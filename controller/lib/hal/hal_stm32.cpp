@@ -685,7 +685,9 @@ static UART dbgUART(UART2_BASE);
 
 constexpr uint8_t txCh = 1;
 constexpr uint8_t rxCh = 2;
+// extern UART_DMA uart_dma;
 UART_DMA uart_dma(UART3_BASE, DMA1_BASE, txCh, rxCh, FRAMING_MARK);
+DMACtrl dmaController(DMA1_BASE);
 
 // The UART that talks to the rPi uses the following pins:
 //    PB10 - TX
@@ -722,6 +724,8 @@ static void InitUARTs() {
   GPIO_PinAltFunc(GPIO_B_BASE, 14, 7);
 
   uart_dma.init(115200);
+  dmaController.init();
+
   dbgUART.Init(115200);
 
   EnableInterrupt(INT_VEC_DMA1_CH2, IntPriority::STANDARD);
