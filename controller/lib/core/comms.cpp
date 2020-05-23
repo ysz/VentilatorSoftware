@@ -1,9 +1,5 @@
 #include "comms.h"
 
-#include <pb_common.h>
-#include <pb_decode.h>
-#include <pb_encode.h>
-
 #include "algorithm.h"
 #include "checksum.h"
 #include "framing.h"
@@ -22,36 +18,23 @@ FrameDetector<RxBufferUartDma<RX_FRAME_LEN_MAX>, RX_FRAME_LEN_MAX>
 // we do that, we want to wait a full TX_INTERVAL_MS.  If we initialized
 // last_tx to 0 and our first transmit happened at time millis() == 0, we
 // would set last_tx back to 0 and then retransmit immediately.
-inline bool Comms::is_time_to_transmit() {
+bool Comms::is_time_to_transmit() {
   return (last_tx == kInvalidTime || Hal.now() - last_tx > TX_INTERVAL);
 }
 
-inline bool Comms::is_transmitting() { return uart_dma_.isTxInProgress(); }
+bool Comms::is_transmitting() { return uart_dma_.isTxInProgress(); }
 
 void Comms::onTxComplete() {}
 
 void Comms::onTxError() {}
 
-// Serializes current controller status, adds crc and escapes it.
-// The resulting frame is written into tx buffer.
-// Returns the length of the resulting frame.
-uint32_t Comms::CreateFrame(const ControllerStatus &controller_status) {
-  uint8_t pb_buffer[ControllerStatus_size + 4];
-
-  pb_ostream_t stream = pb_ostream_from_buffer(pb_buffer, sizeof(pb_buffer));
-  if (!pb_encode(&stream, ControllerStatus_fields, &controller_status)) {
-    // TODO: Serialization failure; log an error or raise an alert.
-    return 0;
-  }
-  uint32_t pb_data_len = (uint32_t)(stream.bytes_written);
-
-  uint32_t crc32 = Hal.crc32(pb_buffer, pb_data_len);
-  if (!append_crc(pb_buffer, pb_data_len, sizeof(pb_buffer), crc32)) {
-    // TODO log an error, output buffer too small
-  }
-
-  return EscapeFrame(pb_buffer, pb_data_len + 4, tx_buffer, TX_BUF_LEN);
+static uint32_t hard_crc32(const uint8_t *data, uint32_t length) {
+  return Hal.crc32(data, length);
 }
+
+static auto EncodeControllerStatusFrame =
+    EncodeFrame<ControllerStatus, ControllerStatus_fields,
+                ControllerStatus_size, &hard_crc32>;
 
 void Comms::process_tx(const ControllerStatus &controller_status) {
   // Serialize our current state into the buffer if
@@ -59,47 +42,35 @@ void Comms::process_tx(const ControllerStatus &controller_status) {
   //  - it's been a while since we last transmitted.
 
   if (!is_transmitting() && is_time_to_transmit()) {
-    uint32_t frame_len = CreateFrame(controller_status);
-    if (frame_len > 0) {
-      uart_dma_.startTX(tx_buffer, frame_len, this);
-      last_tx = Hal.now();
-    } else {
+    uint32_t frame_len =
+        EncodeControllerStatusFrame(controller_status, tx_buffer, TX_BUF_LEN);
+
+    if (0 == frame_len) {
       // TODO log an error
     }
+
+    uart_dma_.startTX(tx_buffer, frame_len, this);
+    last_tx = Hal.now();
   }
 
   // TODO: Alarm if we haven't been able to send a status in a certain amount
   // of time.
 }
 
-static bool is_crc_pass(uint8_t *buf, uint32_t len) {
-  return Hal.crc32(buf, len - 4) == extract_crc(buf, len);
-}
+static auto DecodeGuiStatusFrame =
+    DecodeFrame<GuiStatus, GuiStatus_fields, &hard_crc32>;
 
 void Comms::process_rx(GuiStatus *gui_status) {
   if (frame_detector_.is_frame_available()) {
     uint8_t *buf = frame_detector_.get_frame_buf();
     uint32_t len = frame_detector_.get_frame_length();
 
-    uint32_t decoded_length = UnescapeFrame(buf, len, buf, len);
-    if (0 == decoded_length) {
-      // TODO raise, error, alarm
-      return;
-    }
-    if (!is_crc_pass(buf, decoded_length)) {
-      // printf("! CRC mismatch\n");
-      // TODO CRC mismatch; log an error
-      return;
-    }
-    pb_istream_t stream = pb_istream_from_buffer(buf, decoded_length - 4);
     GuiStatus new_gui_status = GuiStatus_init_zero;
-    if (!pb_decode(&stream, GuiStatus_fields, &new_gui_status)) {
-      // printf("! could not decode");
-      // TODO: Log an error.
-      return;
+    DecodeResult result = DecodeGuiStatusFrame(buf, len, &new_gui_status);
+    if (DecodeResult::SUCCESS == result) {
+      *gui_status = new_gui_status;
+      last_rx = Hal.now();
     }
-    *gui_status = new_gui_status;
-    last_rx = Hal.now();
   }
 }
 

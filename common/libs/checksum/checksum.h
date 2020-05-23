@@ -62,6 +62,12 @@ inline bool checksum_check(const char *packet, uint8_t packet_len) {
 
 bool append_crc(uint8_t *buf, uint32_t dataLength, uint32_t bufLength,
                 uint32_t crc32);
-uint32_t extract_crc(uint8_t *buf, uint32_t dataLength);
+uint32_t extract_crc(const uint8_t *buf, uint32_t dataLength);
 
+bool is_crc_pass(const uint8_t *buf, uint32_t len);
+
+template <uint32_t(CRCFunc)(const uint8_t *, uint32_t)>
+bool is_crc_pass(const uint8_t *buf, uint32_t len) {
+  return CRCFunc(buf, len - 4) == extract_crc(buf, len);
+}
 #endif // CHECKSUM_H

@@ -146,19 +146,8 @@ TEST(CommTests, CommandRx) {
   ControllerStatus controller_status_ignored = ControllerStatus_init_zero;
   GuiStatus received = GuiStatus_init_zero;
   comms.init();
-  // comms.test_PutRxBuffer(fake_frame, sizeof(fake_frame));
   fake_rx(encoded_length);
   comms.handler(controller_status_ignored, &received);
-
-  // Run comms_handler until it updates GuiStatus.  10 iterations should be
-  // more than enough to read the whole thing.
-  //   for (int i = 0; i < 10; i++) {
-  //     comms.handler(controller_status_ignored, &received);
-  //     // We use a timeout for framing packets, so we have to advance the
-  //     time,
-  //     // otherwise we'll never think the packet is complete!
-  //     Hal.delay(milliseconds(1));
-  //   }
   EXPECT_EQ(s.uptime_ms, received.uptime_ms);
   EXPECT_EQ(s.desired_params.mode, received.desired_params.mode);
 }
