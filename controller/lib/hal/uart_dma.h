@@ -21,8 +21,8 @@ class UART_DMA {
   DMA_Regs *const dma;
   uint8_t txCh;
   uint8_t rxCh;
-  RxListener *rxListener;
-  TxListener *txListener;
+  RxListener *rxListener = 0;
+  TxListener *txListener = 0;
   char matchChar;
 
 public:

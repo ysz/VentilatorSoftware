@@ -216,34 +216,46 @@ void UART_DMA::UART_ISR() {
     uart->intClear.s.rtocf = 1;
 
     // TODO define logic if stopRX() has to be here
-    rxListener->onRxError(e);
+    if (rxListener) {
+      rxListener->onRxError(e);
+    }
   }
 
   if (isCharacterMatchInterrupt()) {
     uart->request.s.rxfrq = 1; // Clear RXNE flag before clearing other flags
     uart->intClear.s.cmcf = 1; // Clear char match flag
     // TODO define logic if stopRX() has to be here
-    rxListener->onCharacterMatch();
+    if (rxListener) {
+      rxListener->onCharacterMatch();
+    }
   }
 }
 
 void UART_DMA::DMA_TX_ISR() {
   if (dma->intStat.teif2) {
     stopTX();
-    txListener->onTxError();
+    if (txListener) {
+      txListener->onTxError();
+    }
   } else {
     stopTX();
-    txListener->onTxComplete();
+    if (txListener) {
+      txListener->onTxComplete();
+    }
   }
 }
 
 void UART_DMA::DMA_RX_ISR() {
   if (dma->intStat.teif3) {
     stopRX();
-    rxListener->onRxError(RxError_t::RX_ERROR_DMA);
+    if (rxListener) {
+      rxListener->onRxError(RxError_t::RX_ERROR_DMA);
+    }
   } else {
     stopRX();
-    rxListener->onRxComplete();
+    if (rxListener) {
+      rxListener->onRxComplete();
+    }
   }
 }
 
