@@ -297,7 +297,12 @@ A couple optional parameters can be passed as arguments to this command:
             print("Please give the variable name to read")
             return
 
-        print(GetVar(cl[0]))
+        if len(cl) > 1:
+            fmt = cl[1]
+        else:
+            fmt = None
+
+        print(GetVar(cl[0]), fmt=fmt)
 
     def complete_get(self, text, line, begidx, endidx):
         var = text
@@ -507,7 +512,7 @@ def FindVarByID(vid):
     return None
 
 
-def GetVar(name, raw=False):
+def GetVar(name, raw=False, fmt=None):
     global varDict
     if not name in varDict:
         raise Error("Unknown variable %s" % name)
@@ -530,6 +535,10 @@ def GetVar(name, raw=False):
     if raw:
         return val
 
+    # If a format wasn't passed, use the default for this var
+    if fmt == None:
+        fmt = V.fmt
+
     # I'll convert trace variable values to variable names
     if name.startswith("trace_var"):
         if val < 0:
@@ -538,7 +547,7 @@ def GetVar(name, raw=False):
         if tv != None:
             return tv.name
 
-    return V.fmt % val
+    return fmt % val
 
 
 def SetVar(name, value):
