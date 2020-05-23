@@ -84,7 +84,7 @@ bool append_crc(uint8_t *buf, uint32_t dataLength, uint32_t bufLength,
   return true;
 }
 
-uint32_t extract_crc(uint8_t *buf, uint32_t data_length) {
+uint32_t extract_crc(const uint8_t *buf, uint32_t data_length) {
   if (data_length < 4) {
     return 0;
   }

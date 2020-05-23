@@ -230,7 +230,7 @@ public:
   bool interruptsEnabled();
 
   // Calculate CRC32 for data buffer
-  uint32_t crc32(uint8_t *data, uint32_t length);
+  uint32_t crc32(const uint8_t *data, uint32_t length);
 
 private:
   // Initializes watchdog, sets appropriate pins to OUTPUT, etc.  Called by
@@ -355,7 +355,7 @@ inline void HalApi::disableInterrupts() { interruptsEnabled_ = false; }
 inline void HalApi::enableInterrupts() { interruptsEnabled_ = true; }
 inline bool HalApi::interruptsEnabled() { return interruptsEnabled_; }
 
-inline uint32_t HalApi::crc32(uint8_t *data, uint32_t length) {
+inline uint32_t HalApi::crc32(const uint8_t *data, uint32_t length) {
   return soft_crc32(data, length);
 }
 
