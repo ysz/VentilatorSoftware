@@ -71,6 +71,7 @@ public:
     if (!serialPort_->open(QIODevice::ReadWrite)) {
       return false;
     }
+    frame_detector_.Begin();
     return true;
   }
 
@@ -78,29 +79,29 @@ public:
       EncodeFrame<GuiStatus, GuiStatus_fields, GuiStatus_size, &soft_crc32>;
 
   bool SendGuiStatus(const GuiStatus &gui_status) override {
-    if (!createPortMaybe()) {
-      // TODO log an error, Serial port could not be opened, raise an Alert
-      qFatal("Could not open serial port for sending %s",
-             serialPortName_.toStdString().c_str());
-      return false;
-    }
+    //    if (!createPortMaybe()) {
+    //      // TODO log an error, Serial port could not be opened, raise an
+    //      Alert qFatal("Could not open serial port for sending %s",
+    //             serialPortName_.toStdString().c_str());
+    //      return false;
+    //    }
 
-    uint8_t tx_buffer[(GuiStatus_size + 4) * 2 + 2];
-    uint32_t encoded_length =
-        EncodeGuiStatusFrame(gui_status, tx_buffer, sizeof(tx_buffer));
-    if (0 == encoded_length) {
-      qCritical() << "Could not frame serialized GuiStatus";
-      return false;
-    }
+    //    uint8_t tx_buffer[(GuiStatus_size + 4) * 2 + 2];
+    //    uint32_t encoded_length =
+    //        EncodeGuiStatusFrame(gui_status, tx_buffer, sizeof(tx_buffer));
+    //    if (0 == encoded_length) {
+    //      qCritical() << "Could not frame serialized GuiStatus";
+    //      return false;
+    //    }
 
-    serialPort_->write((const char *)tx_buffer, encoded_length);
+    //    serialPort_->write((const char *)tx_buffer, encoded_length);
 
-    if (!serialPort_->waitForBytesWritten(WRITE_TIMEOUT_MS.count())) {
-      // TODO communication failure, port closed? Log an error and raise
-      // an alert
-      qCritical() << "Timeout while sending GuiStatus";
-      return false;
-    }
+    //    if (!serialPort_->waitForBytesWritten(WRITE_TIMEOUT_MS.count())) {
+    //      // TODO communication failure, port closed? Log an error and raise
+    //      // an alert
+    //      qCritical() << "Timeout while sending GuiStatus";
+    //      return false;
+    //    }
     return true;
   }
 
@@ -108,6 +109,7 @@ public:
       DecodeFrame<ControllerStatus, ControllerStatus_fields, &soft_crc32>;
 
   bool ReceiveControllerStatus(ControllerStatus *controller_status) override {
+    qCritical() << "ReceiveControllerStatus";
     if (!createPortMaybe()) {
       qFatal("Could not open serial port for reading %s",
              serialPortName_.toStdString().c_str());
@@ -115,25 +117,30 @@ public:
       return false;
     }
 
-    if (serialPort_->bytesAvailable()) {
-      QByteArray raw_data = serialPort_->readAll();
-      for (int i = 0; i < raw_data.size(); i++) {
-        rx_buffer_.PutByte(raw_data.at(i));
-      }
+    //    wait for incomming data
+    if (!serialPort_->waitForReadyRead(INTER_FRAME_TIMEOUT_MS.count())) {
+      // TODO frame from CycleController is not on schedule, raise an alert
+      qCritical()
+          << "Timeout while waiting for a serial frame from Cycle Controller";
+      return false;
     }
 
-    // wait for incomming data
-    // if (!serialPort_->waitForReadyRead(INTER_FRAME_TIMEOUT_MS.count())) {
-    //   // TODO frame from CycleController is not on schedule, raise an alert
-    //   qCritical()
-    //       << "Timeout while waiting for a serial frame from Cycle
-    //       Controller";
-    //   return false;
-    // }
+    if (serialPort_->bytesAvailable() > 0) {
+      qCritical() << "Serial data available";
+      QByteArray raw_data = serialPort_->readAll();
+      qCritical() << "size " << raw_data.size();
+      for (int i = 0; i < raw_data.size(); i++) {
+        // qCritical() << i << ":" << (uint8_t)raw_data.at(i);
+        rx_buffer_.PutByte(raw_data.at(i));
+      }
+    } else {
+      qCritical() << "No bytes";
+    }
 
     if (frame_detector_.is_frame_available()) {
       uint8_t *buf = frame_detector_.get_frame_buf();
       uint32_t len = frame_detector_.get_frame_length();
+      qCritical() << "Got frame";
 
       DecodeResult result =
           DecodeControllerStatusFrame(buf, len, controller_status);
@@ -144,6 +151,7 @@ public:
         return false;
         // TODO: Log an error. Raise an Alert?
       }
+      qCritical() << "Frame decoded!!!!!";
     }
 
     return true;

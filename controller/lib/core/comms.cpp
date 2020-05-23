@@ -7,6 +7,8 @@
 #include "network_protocol.pb.h"
 #include "uart_dma.h"
 
+#include "debug.h"
+
 extern UART_DMA uart_dma;
 
 RxBufferUartDma<RX_FRAME_LEN_MAX> rx_buffer(uart_dma);
@@ -24,9 +26,9 @@ bool Comms::is_time_to_transmit() {
 
 bool Comms::is_transmitting() { return uart_dma_.isTxInProgress(); }
 
-void Comms::onTxComplete() {}
+void Comms::onTxComplete() { debugPrint("$"); }
 
-void Comms::onTxError() {}
+void Comms::onTxError() { debugPrint("E"); }
 
 static uint32_t hard_crc32(const uint8_t *data, uint32_t length) {
   return Hal.crc32(data, length);
@@ -46,9 +48,11 @@ void Comms::process_tx(const ControllerStatus &controller_status) {
         EncodeControllerStatusFrame(controller_status, tx_buffer, TX_BUF_LEN);
 
     if (0 == frame_len) {
+      debugPrint("0");
       // TODO log an error
     }
 
+    debugPrint("*");
     uart_dma_.startTX(tx_buffer, frame_len, this);
     last_tx = Hal.now();
   }
@@ -78,6 +82,7 @@ void Comms::init() { frame_detector_.Begin(); }
 
 void Comms::handler(const ControllerStatus &controller_status,
                     GuiStatus *gui_status) {
+
   process_tx(controller_status);
   process_rx(gui_status);
 }
