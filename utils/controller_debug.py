@@ -302,7 +302,7 @@ A couple optional parameters can be passed as arguments to this command:
         else:
             fmt = None
 
-        print(GetVar(cl[0]), fmt=fmt)
+        print(GetVar(cl[0], fmt=fmt))
 
     def complete_get(self, text, line, begidx, endidx):
         var = text
