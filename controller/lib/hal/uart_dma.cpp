@@ -205,7 +205,7 @@ void UART_DMA::UART_ISR() {
       e = RxError_t::RX_ERROR_OVR;
     }
     if (uart->status.s.fe) {
-      e = RxError_t::RX_ERROR_FRAMING;
+      e = RxError_t::RX_ERROR_SERIAL_FRAMING;
     }
 
     uart->request.s.rxfrq = 1; // Clear RXNE flag before clearing other flags
