@@ -54,14 +54,14 @@ void FrameDetector<RxBuffer, FRAME_BUF_LEN>::onCharacterMatch() {
     // for start
     if (rx_buffer_.ReceivedLength() > 1) {
       state = STATE_WAIT_START;
-      printf("\nLOST > WAIT_START\n");
+      // printf("\nLOST > WAIT_START\n");
       // if we were lucky to get lost in the interframe silence,
       // assume this is the start of the frame
     } else if (rx_buffer_.ReceivedLength() == 1) {
       state = STATE_RX_FRAME;
-      printf("\nLOST > RX_FRAME\n");
+      // printf("\nLOST > RX_FRAME\n");
     } else {
-      printf("!!!! DMA not working!");
+      // printf("!!!! DMA not working!");
       // TODO alert, safe reset
       // Should never end up here
       // DMA is not working?
@@ -69,25 +69,25 @@ void FrameDetector<RxBuffer, FRAME_BUF_LEN>::onCharacterMatch() {
     break;
   case STATE_WAIT_START:
     if (rx_buffer_.ReceivedLength() == 1) {
-      printf("\nWAIT_START > RX_FRAME\n");
+      // printf("\nWAIT_START > RX_FRAME\n");
       state = STATE_RX_FRAME;
     } else {
       // some junk received while waiting for start marker,
       // but should have been just silence
       error_counter_++;
       state = STATE_LOST;
-      printf("! JUNK ! %d", rx_buffer_.ReceivedLength());
-      printf("\nWAIT_START > LOST\n");
+      // printf("! JUNK ! %d", rx_buffer_.ReceivedLength());
+      // printf("\nWAIT_START > LOST\n");
     }
     break;
   case STATE_RX_FRAME:
     // end marker received, check if we got something
     if (rx_buffer_.ReceivedLength() > 1) {
       processReceivedData();
-      printf("\nRX_FRAME > WAIT_START\n");
+      // printf("\nRX_FRAME > WAIT_START\n");
       state = STATE_WAIT_START;
     } else {
-      printf("! REPEAT MARK");
+      // printf("! REPEAT MARK");
       // repeated marker char received
       // assume we are still good
     }

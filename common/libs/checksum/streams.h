@@ -61,12 +61,14 @@ public:
 extern UART_DMA uart_dma;
 
 class DmaStream : Stream() : TxListener {
-  uint8_t buf1[400];
-  uint8_t buf2[400];
+  constexpr uint32_t BUF_LEN = 400;
+  uint8_t buf1[BUF_LEN];
+  uint8_t buf2[BUF_LEN];
   uint32_t i = 0;
   uint8_t *buf = buf1;
   uint8_t active_buf;
   void SwapBuffers() { i = 0; }
+  bool BufIsFull() { return i >= BUF_LEN; }
 
 public:
   void Put(uint8_t b) {
