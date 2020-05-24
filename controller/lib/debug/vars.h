@@ -94,17 +94,18 @@ public:
     return varList[vid];
   }
 
-private:
-  // List of all the variables in the system.
-  // Increase size as necessary
-  static DebugVar *varList[100];
-  static int varCount;
-
+protected:
   VarType type;
   const char *name;
   const char *fmt;
   const char *help;
   void *addr;
+
+private:
+  // List of all the variables in the system.
+  // Increase size as necessary
+  static DebugVar *varList[100];
+  static int varCount;
 
   void RegisterVar() {
     if (varCount < static_cast<int>(ARRAY_CT(varList)))

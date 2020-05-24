@@ -59,9 +59,18 @@ static int32_t traceSamp;
 #define TRACE_VAR_CT 4
 static int32_t traceVar[TRACE_VAR_CT];
 
+class TraceCtrlVar : public DebugVar {
+public:
+  TraceCtrlVar(const char *name, int32_t *data, const char *help,
+               const char *fmt)
+      : DebugVar(name, data, help, fmt) {}
+  DbgErrCode SetValue(uint8_t *buff, int len);
+};
+
 // These variables are used control the trace function
-static DebugVar varTraceCtrl("trace_ctrl", &traceCtrl,
-                             "Used to start/stop the trace function", "0x%08x");
+static TraceCtrlVar varTraceCtrl("trace_ctrl", &traceCtrl,
+                                 "Used to start/stop the trace function",
+                                 "0x%08x");
 static DebugVar
     varTracePeriod("trace_period", &tracePeriod,
                    "Period that data will be captured.  Loop cycle units");
@@ -229,5 +238,30 @@ public:
     return DbgErrCode::OK;
   }
 };
+
+DbgErrCode TraceCtrlVar::SetValue(uint8_t *buff, int len) {
+
+  // Temporarily replace the address with a local variable
+  // so the setting doesn't take effect immediately
+  // Then call the standard SetValue function
+  int32_t new_ctrl;
+  addr = &new_ctrl;
+
+  DbgErrCode err = DebugVar::SetValue(buff, len);
+
+  addr = &traceCtrl;
+
+  if (err != DbgErrCode::OK)
+    return err;
+
+  // When a new trace is started, flush the buffer first
+  if ((new_ctrl & 1) && !(traceCtrl & 1)) {
+    traceBuffer.Flush();
+    traceSamp = 0;
+  }
+  traceCtrl = new_ctrl;
+
+  return DbgErrCode::OK;
+}
 
 TraceCmd traceCmd;

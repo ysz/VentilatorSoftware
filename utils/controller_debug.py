@@ -362,6 +362,8 @@ A couple optional parameters can be passed as arguments to this command:
 
        trace graph
          This will download the data and display it graphically
+         The trace data will also be stored to the file last_graph.dat
+         which will be overwritten if it exists
 
        trace download [--seperator=<str> ] <filename>
          This will download the data and save it to a file with the given
@@ -436,14 +438,7 @@ A couple optional parameters can be passed as arguments to this command:
             fp.close()
 
         elif cl[0] == "graph":
-            dat = TraceDownload()
-
-            samp = range(len(dat[0]))
-            plt.figure()
-            for d in dat:
-                plt.plot(samp, d)
-            plt.grid()
-            plt.show()
+            TraceGraph()
 
         else:
             print("Unknown trace sub-command %s" % cl[0])
@@ -608,9 +603,11 @@ def TraceDownload():
     if len(traceVars) < 1:
         return None
 
+    ct = GetVar("trace_samples", raw=True) * len(traceVars)
+
     print("Download trace data...")
     data = []
-    while True:
+    while len(data) < 4 * ct:
         dat = SendCmd(OP_TRACE, [SUBCMD_TRACE_GETDATA])
         if len(dat) < 1:
             break
@@ -637,6 +634,38 @@ def TraceDownload():
 
             ret[i].append(d)
     return ret
+
+
+def TraceGraph():
+    dat = TraceDownload()
+
+    TraceSaveDat(dat, "last_graph.dat")
+
+    samp = range(len(dat[0]))
+    plt.figure()
+    for d in dat:
+        plt.plot(samp, d)
+    plt.grid()
+    plt.show()
+    return dat
+
+
+def TraceSaveDat(dat, fname, seperator="  "):
+
+    tv = TraceActiveVars()
+
+    fp = open(fname, "w")
+    line = []
+    for v in tv:
+        line.append(v.name)
+    fp.write(seperator.join(line) + "\n")
+
+    for i in range(len(dat[0])):
+        line = []
+        for j in range(len(tv)):
+            line.append(tv[j].fmt % dat[j][i])
+        fp.write(seperator.join(line) + "\n")
+    fp.close()
 
 
 def FmtPeek(dat, fmt="+XXXX", addr=0):
